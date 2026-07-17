@@ -88,10 +88,7 @@
     cursor: pointer;
   }
 
-  #salvar {
-    background: var(--ok);
-    color: #fff;
-  }
+  #salvar { background: var(--ok); color: #fff; }
   #salvar:hover { background: #0d652d; }
   #salvar:disabled { background: #9aa0a6; cursor: default; }
 
@@ -104,13 +101,44 @@
   #status.erro { color: var(--erro); }
   #status.pendente { color: var(--dado); }
 
+  /* ---------- Barra de setores (as "flags") ---------- */
+  .setores {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .setor-btn {
+    flex: 1 1 auto;
+    min-width: 130px;
+    padding: 14px 18px;
+    font-size: 18px;
+    font-weight: bold;
+    background: #fff;
+    color: #5f6368;
+    border: 2px solid var(--borda);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform .05s;
+  }
+  .setor-btn:hover { border-color: var(--borda-forte); }
+  .setor-btn:active { transform: translateY(1px); }
+  .setor-btn.ativo {
+    color: #202124;
+    border-color: var(--borda-forte);
+    box-shadow: inset 0 -5px 0 var(--borda-forte);
+  }
+
   /* ---------- Grid ---------- */
   .moldura {
     background: #fff;
     border: 2px solid var(--borda-forte);
     border-radius: 4px;
     overflow: auto;
-    max-height: calc(100vh - 150px);
+    max-height: calc(100vh - 210px);
+    max-width: 760px;
+    margin: 0 auto;
   }
 
   table {
@@ -123,38 +151,31 @@
     border: 1px solid var(--borda);
     padding: 0;
     text-align: center;
-    height: 42px;
+    height: 44px;
   }
 
   thead th {
     background: var(--cabecalho);
     font-size: 15px;
     font-weight: bold;
-    padding: 8px 6px;
+    padding: 10px 6px;
     position: sticky;
+    top: 0;
     z-index: 10;
   }
 
-  thead tr:first-child th { top: 0; height: 32px; }
-  thead tr:last-child th { top: 32px; }
+  #cab-setor { font-size: 17px; }
 
-  .setor-secos { background: #e8f0fe; }
-  .setor-resfriado { background: #fce8e6; }
-
-  /* Larguras: nome de dupla ("Marcelo/Alzoni") precisa caber; hora tem 5 caracteres */
-  .rota {
+  .cam {
     background: var(--cabecalho);
     font-weight: bold;
-    font-size: 17px;
-    width: 56px;
-    min-width: 56px;
+    font-size: 18px;
+    width: 80px;
+    min-width: 80px;
   }
-  .col-op { width: 160px; min-width: 160px; }
-  .col-hora { width: 100px; min-width: 100px; }
-  .col-time { width: 80px; min-width: 80px; }
-
-  /* Divisória entre os dois setores */
-  .divisoria { border-left: 3px solid var(--borda-forte); }
+  .col-op { width: 250px; min-width: 200px; }
+  .col-hora { width: 120px; min-width: 100px; }
+  .col-time { width: 90px; min-width: 80px; }
 
   /* ---------- Campos ---------- */
   select, .hora {
@@ -163,7 +184,7 @@
     border: none;
     background: transparent;
     font-family: inherit;
-    font-size: 16px;
+    font-size: 17px;
     color: var(--dado);
     text-align: center;
     padding: 0 4px;
@@ -171,7 +192,7 @@
   }
 
   .hora {
-    font-size: 18px;
+    font-size: 19px;
     letter-spacing: 1px;
     cursor: text;
   }
@@ -190,22 +211,20 @@
 
   td.time {
     font-weight: bold;
-    font-size: 16px;
+    font-size: 17px;
     color: var(--ok);
     background: #f8f9fa;
-    width: 80px;
   }
   td.time.invalido { color: var(--erro); background: var(--aviso-bg); }
 
-  /* Linha com algum dado preenchido */
-  tr.preenchida .rota { background: #ceead6; }
-
+  tr.preenchida .cam { background: #ceead6; }
   tbody tr:hover td { background: #f8f9fa; }
-  tbody tr:hover .rota { background: #c1d9c8; }
+  tbody tr:hover .cam { background: #c1d9c8; }
 
   /* ---------- Rodapé de ajuda ---------- */
   .ajuda {
-    margin-top: 12px;
+    margin: 12px auto 0;
+    max-width: 760px;
     padding: 12px 16px;
     background: #fff;
     border: 1px solid var(--borda);
@@ -216,7 +235,6 @@
   }
   .ajuda b { color: #202124; }
 
-  /* ---------- Carregando ---------- */
   #carregando {
     padding: 40px;
     text-align: center;
@@ -232,16 +250,16 @@
 <div id="banner" class="oculto"></div>
 
 <div class="topo">
-  <h1>Grid de Operação — Equipe Secos</h1>
-
+  <h1>Grid de Operação</h1>
   <div class="campo-data">
     <label for="data">Data:</label>
     <input type="date" id="data">
   </div>
-
   <button id="salvar" disabled>Salvar na planilha</button>
   <div id="status"></div>
 </div>
+
+<div class="setores" id="setores"></div>
 
 <div id="carregando">Carregando...</div>
 
@@ -249,19 +267,11 @@
   <table>
     <thead>
       <tr>
-        <th rowspan="2" class="rota">#</th>
-        <th colspan="4" class="setor-secos">SECOS 2</th>
-        <th colspan="4" class="setor-resfriado divisoria">RESFRIADO</th>
-      </tr>
-      <tr>
-        <th class="setor-secos col-op">Operador</th>
-        <th class="setor-secos col-hora">Hora início</th>
-        <th class="setor-secos col-hora">Fim</th>
-        <th class="setor-secos col-time">Time</th>
-        <th class="setor-resfriado divisoria col-op">Operador</th>
-        <th class="setor-resfriado col-hora">Hora início</th>
-        <th class="setor-resfriado col-hora">Fim</th>
-        <th class="setor-resfriado col-time">Time</th>
+        <th class="cam">Cam.</th>
+        <th id="cab-setor" class="col-op">Operador</th>
+        <th class="col-hora">Hora início</th>
+        <th class="col-hora">Fim</th>
+        <th class="col-time">Time</th>
       </tr>
     </thead>
     <tbody id="corpo"></tbody>
@@ -270,38 +280,34 @@
 
 <div class="ajuda">
   <b>Como preencher:</b>
-  digite a hora só com números — <b>1830</b> vira <b>18:30</b> sozinho.
+  escolha o <b>setor</b> nos botões de cima.
+  Digite a hora só com números — <b>1830</b> vira <b>18:30</b> sozinho.
   Use <b>Tab</b> ou <b>Enter</b> para pular para o próximo campo.
-  A coluna <b>Time</b> se calcula sozinha, não precisa preencher.
-  Deixe em branco as rotas que não rodaram.
-  Quando terminar, clique em <b>Salvar na planilha</b>.
+  A coluna <b>Time</b> se calcula sozinha.
+  Deixe em branco os caminhões que não rodaram.
+  Ao terminar o setor, clique em <b>Salvar na planilha</b> (salva só o setor aberto).
 </div>
 
 <script>
   /* ================================================================
      CONEXÃO COM A PLANILHA
 
-     Cole abaixo o link /exec do Web App do Apps Script (o passo 4 do
-     README). Enquanto estiver vazio, a página roda em MODO PREVIEW:
-     funciona para testar o visual, mas nada vai para a planilha.
+     Cole abaixo o link /exec do Web App do Apps Script. Enquanto
+     estiver vazio, a página roda em MODO PREVIEW (nada é gravado).
      ================================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbz57zBbS308zlP60frwUkdUvh4VawNXV5sPDf5X60Yj68AmSd82mBfEe-4qfRFJgiuUbA/exec';
 
-  // Seam de teste: em produção __API_URL__ nunca é definido, então isto não faz nada.
+  // Seam de teste: em produção __API_URL__ nunca é definido.
   if (typeof window.__API_URL__ === 'string') API_URL = window.__API_URL__;
 
   var MODO_PREVIEW = !API_URL;
 
   /* ================= Backend ================= */
-  // Real: conversa com o Apps Script.
-  //  - LEITURA por JSONP (tag <script>): não passa por CORS.
-  //  - GRAVAÇÃO por POST no-cors + releitura que confirma que salvou.
-  // O Apps Script não deixa o código enviar cabeçalho CORS, por isso este
-  // caminho em vez de fetch+json (que o navegador bloquearia).
+  // LEITURA por JSONP (tag <script>, sem CORS). GRAVAÇÃO por POST no-cors
+  // seguida de releitura que confirma o que entrou.
   function RealBackend(url) {
     var contador = 0;
 
-    // JSONP: injeta <script src="url?callback=fn&..."> e espera a chamada de fn.
     function jsonp(params) {
       return new Promise(function (resolve, reject) {
         contador += 1;
@@ -338,28 +344,23 @@
       });
     }
 
-    function contarLancamentos(registros) {
+    function contar(registros) {
       var n = 0;
-      Object.keys(registros || {}).forEach(function (rota) {
-        var r = registros[rota] || {};
-        ['secos', 'resfriado'].forEach(function (p) {
-          if ((r[p + '_operador'] || r[p + '_inicio'] || r[p + '_fim'])) n += 1;
-        });
+      Object.keys(registros || {}).forEach(function (cam) {
+        var r = registros[cam] || {};
+        if (r.operador || r.inicio || r.fim) n += 1;
       });
       return n;
     }
 
     return {
       inicio: function () { return jsonp({}); },
-      carregarDia: function (data) { return jsonp({ acao: 'dia', data: data }); },
-      salvarDia: function (payload) {
-        // POST no-cors: envia sem exigir CORS (resposta fica opaca, não dá pra ler).
-        // Por isso, logo depois relemos o dia por JSONP para CONFIRMAR que salvou.
+      carregarSetor: function (data, setor) { return jsonp({ acao: 'dia', data: data, setor: setor }); },
+      salvarSetor: function (payload) {
         return fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
-          .then(function () { return jsonp({ acao: 'dia', data: payload.data }); })
+          .then(function () { return jsonp({ acao: 'dia', data: payload.data, setor: payload.setor }); })
           .then(function (dados) {
-            var n = contarLancamentos(dados.registros);
-            return { ok: true, mensagem: 'Salvo e confirmado: ' + n + ' lançamento(s) na planilha' };
+            return { ok: true, mensagem: 'Salvo e confirmado: ' + contar(dados.registros) + ' lançamento(s) na planilha' };
           })
           .catch(function (e) {
             return { ok: false, mensagem: 'Não deu pra confirmar o salvamento: ' + e.message };
@@ -370,21 +371,26 @@
 
   // Preview: tudo na memória, para testar sem planilha.
   function PreviewBackend() {
-    var mem = {};
+    var mem = {}; // chave "data|setor"
     var config = {
-      rotas: [35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,36,37,38],
-      operadores: {
-        'Secos 2': ['Julio','Alzoni','Marcelo','Julio/Alzoni','Julio/Marcelo','Marcelo/Alzoni'],
-        'Resfriado': ['Helio','Alaor'],
-      },
+      caminhoes: [35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,36,37,38],
+      setores: [
+        { id: 'secos1',     nome: 'Secos 1',    cor: '#e6f4ea', operadores: ['Julio','Marcelo','Alzoni','Julio/Marcelo','Julio/Alzoni','Marcelo/Alzoni'] },
+        { id: 'secos2',     nome: 'Secos 2',    cor: '#e8f0fe', operadores: ['Julio','Alzoni','Marcelo','Julio/Alzoni','Julio/Marcelo','Marcelo/Alzoni'] },
+        { id: 'resfriados', nome: 'Resfriados', cor: '#fce8e6', operadores: ['Helio','Alaor'] },
+        { id: 'congelados', nome: 'Congelados', cor: '#e0f7fa', operadores: ['Josue','Douglas','Jeferson','Vitor','Andre','Francisco'] },
+      ],
       hoje: new Date().toLocaleDateString('pt-BR'),
     };
-    function dia(d) { return { data: d, temDados: !!mem[d], registros: mem[d] || {} }; }
+    function dia(data, setor) {
+      var r = mem[data + '|' + setor];
+      return { data: data, setor: setor, temDados: !!r, registros: r || {} };
+    }
     return {
-      inicio: function () { return Promise.resolve({ config: config, dia: dia(config.hoje) }); },
-      carregarDia: function (d) { return Promise.resolve(dia(d)); },
-      salvarDia: function (p) {
-        mem[p.data] = p.registros;
+      inicio: function () { return Promise.resolve({ config: config }); },
+      carregarSetor: function (data, setor) { return Promise.resolve(dia(data, setor)); },
+      salvarSetor: function (p) {
+        mem[p.data + '|' + p.setor] = p.registros;
         return Promise.resolve({ ok: true, mensagem: 'PREVIEW — não foi para a planilha' });
       },
     };
@@ -393,169 +399,197 @@
   var Backend = MODO_PREVIEW ? PreviewBackend() : RealBackend(API_URL);
 
   var CFG = null;
-  var sujo = false; // tem alteração não salva?
+  var setorAtivo = null;   // id do setor aberto
+  var sujo = false;
 
   /* ================= Início ================= */
   Backend.inicio().then(function (res) {
     CFG = res.config;
     document.getElementById('data').value = paraISO(CFG.hoje);
-    desenharGrid();
+    montarBarraSetores();
+
     document.getElementById('carregando').classList.add('oculto');
     document.getElementById('moldura').classList.remove('oculto');
     document.getElementById('salvar').disabled = false;
 
-    preencher(res.dia.registros);
-    definirStatus(res.dia.temDados ? 'Dia carregado da planilha' : 'Dia novo — nada lançado ainda', 'ok');
-
     if (MODO_PREVIEW) {
       var b = document.getElementById('banner');
-      b.textContent = 'MODO PREVIEW — nada é gravado na planilha. '
-        + 'Para conectar, cole o link do Apps Script na variável API_URL do index.html.';
+      b.textContent = 'MODO PREVIEW — nada é gravado na planilha. Para conectar, cole o link do Apps Script na variável API_URL do index.html.';
       b.classList.remove('oculto');
     }
 
     document.getElementById('data').addEventListener('change', function () {
-      if (sujo && !confirm('Você tem alterações não salvas. Trocar de data vai descartá-las. Continuar?')) {
-        this.value = paraISO(dataAtualBR());
-        return;
-      }
-      carregarDia();
+      if (!confirmarDescarte()) { this.value = paraISO(dataAtualBR()); return; }
+      carregar();
     });
-
     document.getElementById('salvar').addEventListener('click', salvar);
-
     window.addEventListener('beforeunload', function (e) {
       if (sujo) { e.preventDefault(); e.returnValue = ''; }
     });
+
+    selecionarSetor(setorInicial(), true);
   }).catch(function (e) {
     document.getElementById('carregando').textContent =
       'Erro ao carregar: ' + e.message + '. Confira o link do Apps Script (API_URL).';
   });
 
+  /* ================= Setores ================= */
+  function setorInicial() {
+    var salvo = null;
+    try { salvo = localStorage.getItem('grid_setor'); } catch (e) {}
+    if (salvo && CFG.setores.some(function (s) { return s.id === salvo; })) return salvo;
+    return CFG.setores[0].id;
+  }
+
+  function setorPorId(id) {
+    return CFG.setores.filter(function (s) { return s.id === id; })[0] || null;
+  }
+
+  function montarBarraSetores() {
+    var barra = document.getElementById('setores');
+    barra.innerHTML = '';
+    CFG.setores.forEach(function (s) {
+      var btn = document.createElement('button');
+      btn.className = 'setor-btn';
+      btn.textContent = s.nome;
+      btn.dataset.setor = s.id;
+      btn.addEventListener('click', function () { selecionarSetor(s.id, false); });
+      barra.appendChild(btn);
+    });
+  }
+
+  function selecionarSetor(id, forcar) {
+    if (!forcar && id === setorAtivo) return;
+    if (!forcar && !confirmarDescarte()) return;
+
+    setorAtivo = id;
+    try { localStorage.setItem('grid_setor', id); } catch (e) {}
+
+    var setor = setorPorId(id);
+    document.querySelectorAll('.setor-btn').forEach(function (b) {
+      var ativo = b.dataset.setor === id;
+      b.classList.toggle('ativo', ativo);
+      b.style.background = ativo ? setor.cor : '#fff';
+    });
+    document.getElementById('cab-setor').textContent = 'Operador — ' + setor.nome;
+
+    desenharGrid(setor);
+    carregar();
+  }
+
+  function confirmarDescarte() {
+    if (!sujo) return true;
+    return confirm('Você tem alterações não salvas neste setor. Continuar vai descartá-las. Prosseguir?');
+  }
+
   /* ================= Desenho ================= */
-  function desenharGrid() {
+  function desenharGrid(setor) {
     var corpo = document.getElementById('corpo');
     corpo.innerHTML = '';
 
-    CFG.rotas.forEach(function (rota) {
+    CFG.caminhoes.forEach(function (cam) {
       var tr = document.createElement('tr');
-      tr.dataset.rota = rota;
+      tr.dataset.cam = cam;
 
-      var tdRota = document.createElement('td');
-      tdRota.className = 'rota';
-      tdRota.textContent = rota;
-      tr.appendChild(tdRota);
+      var tdCam = document.createElement('td');
+      tdCam.className = 'cam';
+      tdCam.textContent = cam;
+      tr.appendChild(tdCam);
 
-      montarSetor(tr, rota, 'secos', CFG.operadores['Secos 2'], false);
-      montarSetor(tr, rota, 'resfriado', CFG.operadores['Resfriado'], true);
+      // Operador
+      var tdOp = document.createElement('td');
+      var sel = document.createElement('select');
+      sel.dataset.campo = 'operador';
+      sel.appendChild(new Option('', ''));
+      setor.operadores.forEach(function (nome) { sel.appendChild(new Option(nome, nome)); });
+      sel.addEventListener('change', function () { marcarSujo(); atualizarLinha(tr); });
+      tdOp.appendChild(sel);
+      tr.appendChild(tdOp);
+
+      // Início e Fim
+      ['inicio', 'fim'].forEach(function (qual) {
+        var td = document.createElement('td');
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'hora';
+        inp.inputMode = 'numeric';
+        inp.maxLength = 5;
+        inp.placeholder = '--:--';
+        inp.dataset.campo = qual;
+        ligarCampoHora(inp, tr);
+        td.appendChild(inp);
+        tr.appendChild(td);
+      });
+
+      // Time
+      var tdTime = document.createElement('td');
+      tdTime.className = 'time';
+      tdTime.dataset.campo = 'time';
+      tr.appendChild(tdTime);
 
       corpo.appendChild(tr);
     });
   }
 
-  function montarSetor(tr, rota, prefixo, listaOperadores, primeiraColunaDivide) {
-    // Operador
-    var tdOp = document.createElement('td');
-    if (primeiraColunaDivide) tdOp.className = 'divisoria';
-    var sel = document.createElement('select');
-    sel.dataset.campo = prefixo + '_operador';
-    sel.appendChild(new Option('', ''));
-    listaOperadores.forEach(function (nome) { sel.appendChild(new Option(nome, nome)); });
-    sel.addEventListener('change', function () { marcarSujo(); atualizarLinha(tr); });
-    tdOp.appendChild(sel);
-    tr.appendChild(tdOp);
-
-    // Início e Fim
-    ['inicio', 'fim'].forEach(function (qual) {
-      var td = document.createElement('td');
-      var inp = document.createElement('input');
-      inp.type = 'text';
-      inp.className = 'hora';
-      inp.inputMode = 'numeric';
-      inp.maxLength = 5;
-      inp.placeholder = '--:--';
-      inp.dataset.campo = prefixo + '_' + qual;
-      ligarCampoHora(inp, tr);
-      td.appendChild(inp);
-      tr.appendChild(td);
-    });
-
-    // Time (calculado)
-    var tdTime = document.createElement('td');
-    tdTime.className = 'time';
-    tdTime.dataset.campo = prefixo + '_time';
-    tr.appendChild(tdTime);
-  }
-
   /* ================= Campo de hora ================= */
   function ligarCampoHora(inp, tr) {
-    // Enquanto digita: só números, e insere os ":" sozinho
     inp.addEventListener('input', function () {
       var d = inp.value.replace(/\D/g, '').slice(0, 4);
       inp.value = d.length >= 3 ? d.slice(0, 2) + ':' + d.slice(2) : d;
       marcarSujo();
       atualizarLinha(tr);
     });
-
-    // Ao sair: completa formatos curtos ("8" -> 08:00, "830" -> 08:30)
     inp.addEventListener('blur', function () {
       inp.value = normalizarHora(inp.value);
       atualizarLinha(tr);
     });
-
-    // Enter pula pro próximo campo, igual planilha
     inp.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); proximoCampo(inp); }
     });
-
     inp.addEventListener('focus', function () { inp.select(); });
   }
 
   function normalizarHora(texto) {
     var d = String(texto).replace(/\D/g, '');
     if (!d) return '';
-    if (d.length === 1) d = '0' + d + '00';      // 8    -> 0800
-    else if (d.length === 2) d = d + '00';       // 18   -> 1800
-    else if (d.length === 3) d = '0' + d;        // 830  -> 0830
+    if (d.length === 1) d = '0' + d + '00';
+    else if (d.length === 2) d = d + '00';
+    else if (d.length === 3) d = '0' + d;
     var h = d.slice(0, 2), m = d.slice(2, 4);
-    if (Number(h) > 23 || Number(m) > 59) return texto; // deixa errado à mostra
+    if (Number(h) > 23 || Number(m) > 59) return texto;
     return h + ':' + m;
   }
 
   function horaValida(v) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(v); }
 
   function proximoCampo(atual) {
-    var campos = Array.prototype.slice.call(
-      document.querySelectorAll('#corpo select, #corpo .hora'));
+    var campos = Array.prototype.slice.call(document.querySelectorAll('#corpo select, #corpo .hora'));
     var i = campos.indexOf(atual);
     if (i > -1 && i < campos.length - 1) campos[i + 1].focus();
   }
 
   /* ================= Cálculo ao vivo ================= */
   function atualizarLinha(tr) {
-    ['secos', 'resfriado'].forEach(function (p) {
-      var ini = tr.querySelector('[data-campo="' + p + '_inicio"]');
-      var fim = tr.querySelector('[data-campo="' + p + '_fim"]');
-      var td = tr.querySelector('[data-campo="' + p + '_time"]');
+    var ini = tr.querySelector('[data-campo="inicio"]');
+    var fim = tr.querySelector('[data-campo="fim"]');
+    var td = tr.querySelector('[data-campo="time"]');
 
-      [ini, fim].forEach(function (c) {
-        var erradoDeFato = c.value !== '' && c.value.length >= 4 && !horaValida(c.value);
-        c.classList.toggle('invalido', erradoDeFato);
-      });
-
-      if (horaValida(ini.value) && horaValida(fim.value)) {
-        var diff = minutos(fim.value) - minutos(ini.value);
-        if (diff < 0) diff += 24 * 60; // turno que vira o dia
-        td.textContent = Math.floor(diff / 60) + ':' + String(diff % 60).padStart(2, '0');
-        // Mais de 12h quase certamente é digitação trocada, não turno noturno
-        td.classList.toggle('invalido', diff > 12 * 60);
-        td.title = diff > 12 * 60 ? 'Tempo muito longo — confira as horas' : '';
-      } else {
-        td.textContent = '';
-        td.classList.remove('invalido');
-        td.title = '';
-      }
+    [ini, fim].forEach(function (c) {
+      var errado = c.value !== '' && c.value.length >= 4 && !horaValida(c.value);
+      c.classList.toggle('invalido', errado);
     });
+
+    if (horaValida(ini.value) && horaValida(fim.value)) {
+      var diff = minutos(fim.value) - minutos(ini.value);
+      if (diff < 0) diff += 24 * 60;
+      td.textContent = Math.floor(diff / 60) + ':' + String(diff % 60).padStart(2, '0');
+      td.classList.toggle('invalido', diff > 12 * 60);
+      td.title = diff > 12 * 60 ? 'Tempo muito longo — confira as horas' : '';
+    } else {
+      td.textContent = '';
+      td.classList.remove('invalido');
+      td.title = '';
+    }
 
     var temDado = Array.prototype.some.call(
       tr.querySelectorAll('select, .hora'), function (c) { return c.value !== ''; });
@@ -568,13 +602,13 @@
   }
 
   /* ================= Carregar / Salvar ================= */
-  function carregarDia() {
+  function carregar() {
     travar(true, 'Carregando...');
-    Backend.carregarDia(dataAtualBR())
+    Backend.carregarSetor(dataAtualBR(), setorAtivo)
       .then(function (res) {
         preencher(res.registros);
         sujo = false;
-        travar(false, res.temDados ? 'Dia carregado da planilha' : 'Dia novo — nada lançado ainda', 'ok');
+        travar(false, res.temDados ? 'Setor carregado da planilha' : 'Nada lançado ainda neste setor/dia', 'ok');
       })
       .catch(function (e) { travar(false, 'Erro: ' + e.message, 'erro'); });
   }
@@ -582,27 +616,23 @@
   function preencher(registros) {
     registros = registros || {};
     document.querySelectorAll('#corpo tr').forEach(function (tr) {
-      var r = registros[tr.dataset.rota] || {};
-      tr.querySelectorAll('select, .hora').forEach(function (c) {
-        var v = r[c.dataset.campo] || '';
-        c.value = c.classList.contains('hora') ? normalizarHora(v) : v;
-        // Operador que veio da planilha mas não está na lista: não perde o dado
-        if (c.tagName === 'SELECT' && v && c.value !== v) {
-          c.appendChild(new Option(v, v));
-          c.value = v;
-        }
-      });
+      var r = registros[tr.dataset.cam] || {};
+      var sel = tr.querySelector('select');
+      var vOp = r.operador || '';
+      sel.value = vOp;
+      if (vOp && sel.value !== vOp) { sel.appendChild(new Option(vOp, vOp)); sel.value = vOp; }
+      tr.querySelector('[data-campo="inicio"]').value = normalizarHora(r.inicio || '');
+      tr.querySelector('[data-campo="fim"]').value = normalizarHora(r.fim || '');
       atualizarLinha(tr);
     });
   }
 
   function salvar() {
     var invalidos = document.querySelectorAll('#corpo .hora.invalido').length;
-    if (invalidos && !confirm(
-        'Há ' + invalidos + ' hora(s) com formato errado (em vermelho). Salvar mesmo assim?')) return;
+    if (invalidos && !confirm('Há ' + invalidos + ' hora(s) com formato errado (em vermelho). Salvar mesmo assim?')) return;
 
     travar(true, 'Salvando...');
-    Backend.salvarDia({ data: dataAtualBR(), registros: coletar() })
+    Backend.salvarSetor({ data: dataAtualBR(), setor: setorAtivo, registros: coletar() })
       .then(function (res) {
         if (res.ok) sujo = false;
         travar(false, res.mensagem, res.ok ? 'ok' : 'erro');
@@ -613,11 +643,11 @@
   function coletar() {
     var registros = {};
     document.querySelectorAll('#corpo tr').forEach(function (tr) {
-      var r = {};
-      tr.querySelectorAll('select, .hora').forEach(function (c) {
-        r[c.dataset.campo] = c.classList.contains('hora') ? normalizarHora(c.value) : c.value;
-      });
-      registros[tr.dataset.rota] = r;
+      registros[tr.dataset.cam] = {
+        operador: tr.querySelector('select').value,
+        inicio: normalizarHora(tr.querySelector('[data-campo="inicio"]').value),
+        fim: normalizarHora(tr.querySelector('[data-campo="fim"]').value),
+      };
     });
     return registros;
   }
@@ -640,7 +670,7 @@
   }
 
   function dataAtualBR() {
-    var v = document.getElementById('data').value; // yyyy-mm-dd
+    var v = document.getElementById('data').value;
     if (!v) return CFG.hoje;
     var p = v.split('-');
     return p[2] + '/' + p[1] + '/' + p[0];
@@ -651,9 +681,10 @@
     return p[2] + '-' + p[1] + '-' + p[0];
   }
 
-  // Exposto para os testes automatizados dirigirem a página.
+  // Exposto para os testes.
   window.coletar = coletar;
   window.Backend = Backend;
+  window.getSetorAtivo = function () { return setorAtivo; };
 </script>
 </body>
 </html>

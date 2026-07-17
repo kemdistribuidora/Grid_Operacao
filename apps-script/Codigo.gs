@@ -34,10 +34,10 @@
 
 /**
  * Leituras (JSONP).
- *   ?acao=ping                     -> teste rápido ("pong")
- *   ?acao=config                   -> rotas, setores, operadores
- *   ?acao=dia&data=15/07/2026      -> lançamentos do dia
- *   (sem acao)                     -> config + dia de hoje
+ *   ?acao=ping                                  -> teste rápido ("pong")
+ *   ?acao=config                                -> caminhões, setores (com operadores)
+ *   ?acao=dia&data=15/07/2026&setor=secos2      -> lançamentos de UM setor no dia
+ *   (sem acao)                                  -> só a config (o front escolhe o setor)
  * Com ?callback=nome, responde nome(json) para funcionar por <script> (sem CORS).
  */
 function doGet(e) {
@@ -49,10 +49,9 @@ function doGet(e) {
     } else if (p.acao === 'config') {
       out = { ok: true, dados: getConfig() };
     } else if (p.acao === 'dia') {
-      out = { ok: true, dados: carregarDia(normalizarData(p.data) || p.data) };
+      out = { ok: true, dados: carregarSetor(normalizarData(p.data) || p.data, p.setor) };
     } else {
-      const cfg = getConfig();
-      out = { ok: true, dados: { config: cfg, dia: carregarDia(cfg.hoje) } };
+      out = { ok: true, dados: { config: getConfig() } };
     }
   } catch (err) {
     out = { ok: false, mensagem: 'Erro: ' + err };
@@ -60,12 +59,12 @@ function doGet(e) {
   return responder(out, p.callback);
 }
 
-/** Gravação. O front envia o corpo como texto (POST simples, sem preflight CORS). */
+/** Gravação de UM setor. O front envia o corpo como texto (POST simples, sem preflight). */
 function doPost(e) {
   let out;
   try {
     const payload = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    out = salvarDia(payload);
+    out = salvarSetor(payload);
   } catch (err) {
     out = { ok: false, mensagem: 'Erro: ' + err };
   }
@@ -93,10 +92,16 @@ const CONFIG = {
   // Ordem das rotas no grid, de cima para baixo (igual à planilha antiga).
   ROTAS: [35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 36, 37, 38],
 
-  // id = usado internamente | nome = o que aparece no grid e grava na coluna Setor
+  // id  = usado internamente (não muda)
+  // nome = o que aparece na barra de setores e grava na coluna Setor
+  // cor  = destaque da aba do setor quando selecionado
+  // operadores = as opções do menu suspenso daquele setor
   SETORES: [
-    { id: 'secos', nome: 'Secos 2', operadores: ['Julio', 'Alzoni', 'Marcelo', 'Julio/Alzoni', 'Julio/Marcelo', 'Marcelo/Alzoni'] },
-    { id: 'resfriado', nome: 'Resfriado', operadores: ['Helio', 'Alaor'] },
+    // ATENÇÃO: confirme os operadores de Secos 1 e Resfriados (chutei pelos dados antigos).
+    { id: 'secos1',     nome: 'Secos 1',     cor: '#e6f4ea', operadores: ['Julio', 'Marcelo', 'Alzoni', 'Julio/Marcelo', 'Julio/Alzoni', 'Marcelo/Alzoni'] },
+    { id: 'secos2',     nome: 'Secos 2',     cor: '#e8f0fe', operadores: ['Julio', 'Alzoni', 'Marcelo', 'Julio/Alzoni', 'Julio/Marcelo', 'Marcelo/Alzoni'] },
+    { id: 'resfriados', nome: 'Resfriados',  cor: '#fce8e6', operadores: ['Helio', 'Alaor'] },
+    { id: 'congelados', nome: 'Congelados',  cor: '#e0f7fa', operadores: ['Josue', 'Douglas', 'Jeferson', 'Vitor', 'Andre', 'Francisco'] },
   ],
 
   FUSO: 'America/Sao_Paulo',
@@ -104,7 +109,7 @@ const CONFIG = {
 
 // Colunas da aba API (base 1). Mudar a ordem aqui muda a aba inteira.
 const COL = { DATA: 1, ROTA: 2, SETOR: 3, OPERADOR: 4, INICIO: 5, FIM: 6, TIME: 7, ATUALIZADO: 8 };
-const CABECALHO = ['Data', 'Rota', 'Setor', 'Operador', 'Hora inicio', 'Fim', 'Time', 'Atualizado em'];
+const CABECALHO = ['Data', 'Caminhao', 'Setor', 'Operador', 'Hora inicio', 'Fim', 'Time', 'Atualizado em'];
 const LINHA_CABECALHO = 1;
 const PRIMEIRA_LINHA_DADOS = 2;
 
@@ -113,14 +118,19 @@ const PRIMEIRA_LINHA_DADOS = 2;
    ============================================================ */
 
 function getConfig() {
-  const operadores = {};
-  CONFIG.SETORES.forEach(s => { operadores[s.nome] = s.operadores; });
   return {
-    rotas: CONFIG.ROTAS,
-    setores: CONFIG.SETORES.map(s => ({ id: s.id, nome: s.nome })),
-    operadores: operadores,
+    caminhoes: CONFIG.ROTAS,
+    setores: CONFIG.SETORES.map(s => ({
+      id: s.id, nome: s.nome, cor: s.cor, operadores: s.operadores,
+    })),
     hoje: Utilities.formatDate(new Date(), CONFIG.FUSO, 'dd/MM/yyyy'),
   };
+}
+
+/** Acha um setor pelo id ('secos2') ou pelo nome ('Secos 2'). */
+function acharSetor(idOuNome) {
+  const chave = String(idOuNome || '').trim();
+  return CONFIG.SETORES.find(s => s.id === chave || s.nome === chave) || null;
 }
 
 /* ============================================================
@@ -180,38 +190,41 @@ function lerTudo(aba) {
   return aba.getRange(PRIMEIRA_LINHA_DADOS, 1, ultima - 1, CABECALHO.length).getDisplayValues();
 }
 
-/** Devolve o dia no formato que o grid entende, para abrir preenchido. */
-function carregarDia(dataBR) {
+/**
+ * Devolve os lançamentos de UM setor num dia, para o grid abrir preenchido.
+ * registros = { "35": {operador, inicio, fim}, ... } com todos os caminhões.
+ */
+function carregarSetor(dataBR, setorIdOuNome) {
+  const setor = acharSetor(setorIdOuNome);
+  if (!setor) throw new Error('Setor desconhecido: ' + setorIdOuNome);
+
   const aba = pegarAba();
-  const linhas = lerTudo(aba).filter(l => normalizarData(l[COL.DATA - 1]) === dataBR);
+  const linhas = lerTudo(aba).filter(l =>
+    normalizarData(l[COL.DATA - 1]) === dataBR &&
+    String(l[COL.SETOR - 1]).trim() === setor.nome);
 
   const registros = {};
-  CONFIG.ROTAS.forEach(rota => {
-    registros[rota] = {};
-    CONFIG.SETORES.forEach(s => {
-      registros[rota][s.id + '_operador'] = '';
-      registros[rota][s.id + '_inicio'] = '';
-      registros[rota][s.id + '_fim'] = '';
-    });
-  });
+  CONFIG.ROTAS.forEach(cam => { registros[cam] = { operador: '', inicio: '', fim: '' }; });
 
   linhas.forEach(l => {
-    const rota = String(l[COL.ROTA - 1]).trim();
-    const setor = CONFIG.SETORES.find(s => s.nome === String(l[COL.SETOR - 1]).trim());
-    if (!setor || !registros[rota]) return;
-    registros[rota][setor.id + '_operador'] = l[COL.OPERADOR - 1] || '';
-    registros[rota][setor.id + '_inicio'] = normalizarHora(l[COL.INICIO - 1]);
-    registros[rota][setor.id + '_fim'] = normalizarHora(l[COL.FIM - 1]);
+    const cam = String(l[COL.ROTA - 1]).trim();
+    if (!registros[cam]) return;
+    registros[cam] = {
+      operador: l[COL.OPERADOR - 1] || '',
+      inicio: normalizarHora(l[COL.INICIO - 1]),
+      fim: normalizarHora(l[COL.FIM - 1]),
+    };
   });
 
-  return { data: dataBR, temDados: linhas.length > 0, registros: registros };
+  return { data: dataBR, setor: setor.id, temDados: linhas.length > 0, registros: registros };
 }
 
 /**
- * Grava o dia. Substitui por completo os lançamentos daquela data:
- * o que o grid mandar é o que fica. Rotas vazias não viram linha.
+ * Grava UM setor de um dia. Substitui só os lançamentos de (data + setor);
+ * os outros setores do mesmo dia e os outros dias ficam intactos.
+ * Caminhão vazio não vira linha.
  */
-function salvarDia(payload) {
+function salvarSetor(payload) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(30000);
@@ -222,39 +235,40 @@ function salvarDia(payload) {
   try {
     const dataBR = normalizarData(payload.data);
     if (!dataBR) return { ok: false, mensagem: 'Data inválida.' };
+    const setor = acharSetor(payload.setor);
+    if (!setor) return { ok: false, mensagem: 'Setor inválido.' };
 
     const aba = pegarAba();
     const agora = Utilities.formatDate(new Date(), CONFIG.FUSO, 'dd/MM/yyyy HH:mm');
 
-    // Tudo que NÃO é do dia sendo salvo é preservado — mas canonizado, para a
-    // coluna não ficar com tipos misturados (rota texto x rota número etc.)
-    const outrosDias = lerTudo(aba)
-      .filter(l => normalizarData(l[COL.DATA - 1]) !== dataBR)
-      .map(canonizar);
+    // Preserva tudo, MENOS as linhas deste mesmo (data + setor). Canoniza o resto
+    // para a coluna não ficar com tipos misturados.
+    const preservado = lerTudo(aba).filter(l => !(
+      normalizarData(l[COL.DATA - 1]) === dataBR &&
+      String(l[COL.SETOR - 1]).trim() === setor.nome
+    )).map(canonizar);
 
-    // Monta as linhas novas do dia, na ordem das rotas e dos setores
-    const doDia = [];
-    CONFIG.ROTAS.forEach(rota => {
-      const r = payload.registros[rota] || {};
-      CONFIG.SETORES.forEach(s => {
-        const operador = String(r[s.id + '_operador'] || '').trim();
-        const inicio = normalizarHora(r[s.id + '_inicio']);
-        const fim = normalizarHora(r[s.id + '_fim']);
-        if (!operador && !inicio && !fim) return; // rota parada não vira linha
-        const linha = [];
-        linha[COL.DATA - 1] = dataBR;
-        linha[COL.ROTA - 1] = rota;
-        linha[COL.SETOR - 1] = s.nome;
-        linha[COL.OPERADOR - 1] = operador;
-        linha[COL.INICIO - 1] = inicio;
-        linha[COL.FIM - 1] = fim;
-        linha[COL.TIME - 1] = calcularDuracao(inicio, fim);
-        linha[COL.ATUALIZADO - 1] = agora;
-        doDia.push(linha);
-      });
+    // Monta as linhas novas do setor, na ordem dos caminhões
+    const novas = [];
+    CONFIG.ROTAS.forEach(cam => {
+      const r = (payload.registros || {})[cam] || {};
+      const operador = String(r.operador || '').trim();
+      const inicio = normalizarHora(r.inicio);
+      const fim = normalizarHora(r.fim);
+      if (!operador && !inicio && !fim) return; // caminhão parado não vira linha
+      const linha = [];
+      linha[COL.DATA - 1] = dataBR;
+      linha[COL.ROTA - 1] = cam;
+      linha[COL.SETOR - 1] = setor.nome;
+      linha[COL.OPERADOR - 1] = operador;
+      linha[COL.INICIO - 1] = inicio;
+      linha[COL.FIM - 1] = fim;
+      linha[COL.TIME - 1] = calcularDuracao(inicio, fim);
+      linha[COL.ATUALIZADO - 1] = agora;
+      novas.push(linha);
     });
 
-    const tudo = ordenar(outrosDias.concat(doDia));
+    const tudo = ordenar(preservado.concat(novas));
 
     // Escreve primeiro, limpa a sobra depois. Se falhar no meio, nada se perde.
     if (tudo.length) {
@@ -268,9 +282,9 @@ function salvarDia(payload) {
 
     return {
       ok: true,
-      mensagem: doDia.length
-        ? doDia.length + ' lançamento(s) salvos às ' + agora.slice(-5)
-        : 'Dia salvo sem lançamentos às ' + agora.slice(-5),
+      mensagem: novas.length
+        ? novas.length + ' lançamento(s) salvos às ' + agora.slice(-5)
+        : setor.nome + ' salvo sem lançamentos às ' + agora.slice(-5),
     };
   } catch (e) {
     return { ok: false, mensagem: 'Erro ao salvar: ' + e.message };

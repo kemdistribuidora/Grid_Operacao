@@ -4,11 +4,22 @@ Tela simples e travada para os operadores lançarem os tempos de separação de 
 no lugar de preencherem o Google Sheets direto.
 
 **A ideia central:** o operador nunca abre a planilha. Ele abre um link fixo (GitHub Pages),
-digita, clica em Salvar. Não tem como arrastar célula, apagar fórmula ou desalinhar coluna —
-porque ele não tem acesso à planilha. Quem escreve é o Apps Script, sempre no formato certo.
+escolhe o **setor** que vai preencher, digita, clica em Salvar. Não tem como arrastar célula,
+apagar fórmula ou desalinhar coluna — porque ele não tem acesso à planilha. Quem escreve é o
+Apps Script, sempre no formato certo.
+
+**4 setores, um por vez:** a barra de cima tem `Secos 1`, `Secos 2`, `Resfriados`, `Congelados`.
+Cada um tem sua lista de operadores. Salvar grava **só o setor aberto** — os outros setores do
+mesmo dia ficam intactos. A tela lembra o último setor usado (por PC).
+
+A coluna lateral são os **números dos caminhões** (16–38), iguais nos 4 setores.
 
 Os dados vão para a aba **`EQUIPE SECOS API`**, em formato de lista (uma linha por lançamento).
 A aba antiga `EQUIPE SECOS` **não é tocada**.
+
+> **Confirme os operadores:** eu preenchi `Secos 2` e `Resfriados` com os nomes que apareciam
+> nos dados, mas **chutei os de `Secos 1` e `Congelados`**. Ajuste as listas no `CONFIG` do
+> `Codigo.gs` (seção "Ajustes comuns").
 
 ## Como as peças se encaixam
 
@@ -38,10 +49,11 @@ A `EQUIPE SECOS` original virou um histórico de várias planilhas coladas lado 
 6 colunas, dias com 3, com e sem hora). Escrever dentro daquilo seria frágil. A `EQUIPE SECOS
 API` é uma tabela de verdade:
 
-| Data | Rota | Setor | Operador | Hora inicio | Fim | Time | Atualizado em |
+| Data | Caminhao | Setor | Operador | Hora inicio | Fim | Time | Atualizado em |
 |------|------|-------|----------|-------------|-----|------|---------------|
 | 15/07/2026 | 35 | Secos 2 | Julio | 18:30 | 18:50 | 0:20 | 15/07/2026 11:40 |
-| 15/07/2026 | 35 | Resfriado | Helio | 18:21 | 18:28 | 0:07 | 15/07/2026 11:40 |
+| 15/07/2026 | 35 | Resfriados | Helio | 18:21 | 18:28 | 0:07 | 15/07/2026 11:40 |
+| 15/07/2026 | 34 | Secos 2 | Alzoni | 20:27 | 20:32 | 0:05 | 15/07/2026 11:40 |
 
 Rotas sem movimento no dia (como 33 e 26) **não geram linha**. É o formato que a Tabela
 Dinâmica soma sem esforço.
@@ -130,9 +142,9 @@ a releitura falhou; refaça o teste do ping.
 
 ## Como funciona
 
-- **Salvar** grava o dia inteiro de uma vez, com trava (`LockService`) contra dois PCs ao mesmo
-  tempo. Regravar um dia **substitui** os lançamentos daquela data — nunca duplica — e não toca
-  nos outros dias.
+- **Salvar** grava um setor de cada vez, com trava (`LockService`) contra dois PCs ao mesmo
+  tempo. Regravar um (data + setor) **substitui** só aqueles lançamentos — nunca duplica — e
+  não toca nos outros setores nem nos outros dias.
 - **Time** é calculado pelo Apps Script, não digitado. Atravessa a meia-noite (23:40 → 00:10 = 0:30).
 - **Reabrir** uma data já lançada traz o que está na planilha, para corrigir.
 - **Leitura por JSONP, gravação por POST `no-cors`** (veja o quadro acima). A gravação é sempre
@@ -141,11 +153,16 @@ a releitura falhou; refaça o teste do ping.
 
 ## Ajustes comuns
 
-Tudo no `CONFIG`, no topo do `Codigo.gs` (e republicar a implantação):
+Tudo no `CONFIG`, no topo do `Codigo.gs` (e republicar a implantação como Nova versão):
 
-- **Entrou/saiu operador** → `operadores`, dentro de `SETORES`
-- **Nova rota** → `ROTAS`, na posição desejada
+- **Operadores de um setor** → a lista `operadores` daquele setor, dentro de `SETORES`.
+  É aqui que você corrige `Secos 1` e `Congelados`.
+- **Novo setor** → mais um item em `SETORES` (com `id`, `nome`, `cor`, `operadores`)
+- **Novo caminhão** → `ROTAS`, na posição desejada
 - **Renomear a aba** → `ABA` (rode `prepararAba` de novo depois)
+
+O `id` de um setor (ex.: `secos2`) é usado internamente e não deve mudar depois que houver
+dados gravados; o `nome` (ex.: `Secos 2`) é o que aparece na tela e grava na coluna Setor.
 
 Um operador que já está na planilha mas saiu da lista não é apagado — o grid mostra o nome dele
 ao reabrir o dia. Só não aparece como opção para novos lançamentos.

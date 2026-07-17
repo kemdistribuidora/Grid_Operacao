@@ -66,17 +66,30 @@ mas nada é gravado.
 
 1. Abra a planilha → **Extensões → Apps Script**
 2. Cole o conteúdo de `apps-script/Codigo.gs` no arquivo `Codigo.gs`
-3. Rode a função **`prepararAba`** uma vez (menu de funções → Executar). Ela cria a aba
-   `EQUIPE SECOS API` já formatada. É seguro rodar de novo — não apaga nada.
-4. **Implantar → Nova implantação → App da Web**
+3. Confira, no topo do `CONFIG`, o **`PLANILHA_ID`** — é o trecho do link da planilha entre
+   `/d/` e `/edit`. Já vem preenchido com o ID da planilha atual.
+4. Rode a função **`prepararAba`** uma vez (menu de funções → Executar). Na primeira vez o
+   Google pede autorização — aceite. Ela cria a aba `EQUIPE SECOS API` já formatada. É seguro
+   rodar de novo, não apaga nada.
+5. **Implantar → Nova implantação → App da Web**
    - Executar como: **eu**
-   - Quem tem acesso: **qualquer pessoa**
-5. Copie o link gerado, que termina em **`/exec`**
+   - Quem tem acesso: **qualquer pessoa** (sem "com conta do Google")
+6. Copie o link gerado, que termina em **`/exec`**
 
-> "Qualquer pessoa" é necessário para a página do github.io conseguir chamar a API sem exigir
-> login do Google dos operadores. Como o endpoint aceita gravação, quem tiver esse link
-> consegue enviar dados — para uma ferramenta interna de operação, isso é normal. O link do
-> endpoint não aparece na tela, só no código.
+> **Teste o endpoint antes de seguir:** cole o link `/exec` numa aba do navegador e acrescente
+> `?acao=ping` no final. Deve aparecer um texto tipo `{"ok":true,"dados":"pong",...}`. Se
+> aparecer isso, a API está no ar. Se aparecer tela de login, página em branco ou erro, veja a
+> seção **Se der errado** mais abaixo — não adianta seguir enquanto o ping não responder.
+
+> "Qualquer pessoa" é necessário para a página do github.io chamar a API sem exigir login do
+> Google dos operadores. Como o endpoint aceita gravação, quem tiver esse link consegue enviar
+> dados — para uma ferramenta interna de operação, isso é normal. O link não aparece na tela,
+> só no código.
+
+> **Comunicação sem CORS:** a leitura usa JSONP (uma tag `<script>`) e a gravação usa POST
+> `no-cors` seguido de uma releitura que confirma o que entrou. Isso contorna o bloqueio de
+> CORS do Apps Script (o Google não permite o código enviar o cabeçalho que o `fetch` exigiria).
+> Não vale a pena tentar trocar por `fetch`+`json` — foi por isso que a primeira versão falhou.
 
 ### Parte B — a tela (GitHub Pages)
 
@@ -94,6 +107,27 @@ Deixe esse link nos favoritos do PC dos operadores. Pronto.
 > editar (lápis) → Versão: Nova versão**. Senão o `/exec` continua servindo a versão antiga.
 > Ao mudar o `index.html`, basta o push — o Pages atualiza sozinho.
 
+## Se der errado
+
+Faça o teste do ping (`/exec?acao=ping`) e veja o que acontece:
+
+| O que aparece no ping | O que significa | O que fazer |
+|---|---|---|
+| `{"ok":true,"dados":"pong"}` | API no ar | Confira se o `API_URL` do `index.html` é **exatamente** esse link `/exec` e deu push |
+| Tela de login do Google | Acesso não está "Qualquer pessoa" | Reimplante como **Qualquer pessoa** e crie uma **Nova versão** |
+| Página em branco / erro | Script não achou a planilha, ou versão velha | Confira o `PLANILHA_ID`; rode `prepararAba`; reimplante como Nova versão |
+| `{"ok":false,...}` | O script rodou mas deu erro interno | A mensagem no JSON diz qual — geralmente aba ou permissão |
+
+**Erro de CORS no console** (`No 'Access-Control-Allow-Origin'`): quase sempre é o `index.html`
+apontando para uma implantação **antiga**. Cada "Nova implantação" gera uma URL `/exec`
+diferente. Use a URL da implantação **ativa** e dê push. Preferir sempre **Gerenciar
+implantações → Nova versão** (mantém a mesma URL) em vez de criar implantações novas.
+
+**Confirmação ao salvar:** ao clicar em Salvar, o status mostra *"Salvo e confirmado: N
+lançamento(s)"*. Esse número vem de uma releitura da planilha depois de gravar — ou seja, se
+apareceu, os dados **entraram** de verdade. Se aparecer "Não deu pra confirmar", a gravação ou
+a releitura falhou; refaça o teste do ping.
+
 ## Como funciona
 
 - **Salvar** grava o dia inteiro de uma vez, com trava (`LockService`) contra dois PCs ao mesmo
@@ -101,9 +135,9 @@ Deixe esse link nos favoritos do PC dos operadores. Pronto.
   nos outros dias.
 - **Time** é calculado pelo Apps Script, não digitado. Atravessa a meia-noite (23:40 → 00:10 = 0:30).
 - **Reabrir** uma data já lançada traz o que está na planilha, para corrigir.
-- A comunicação usa `fetch` simples (GET para ler, POST com corpo de texto para gravar), o que
-  evita o bloqueio de CORS do Apps Script. **Não troque o POST para `Content-Type:
-  application/json`** — isso dispara um preflight que o Apps Script rejeita.
+- **Leitura por JSONP, gravação por POST `no-cors`** (veja o quadro acima). A gravação é sempre
+  seguida de uma releitura que confirma o que entrou na planilha — é daí que vem o número no
+  status "Salvo e confirmado".
 
 ## Ajustes comuns
 

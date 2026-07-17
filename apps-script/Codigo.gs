@@ -11,16 +11,20 @@
  * COMO PUBLICAR (uma vez só):
  *   1. Planilha > Extensões > Apps Script
  *   2. Cole este arquivo em Codigo.gs (não precisa mais do Grid.html)
- *   3. Rode a função "prepararAba" uma vez (cria a aba API já formatada)
- *   4. Implantar > Nova implantação > App da Web
+ *   3. Confira o CONFIG.PLANILHA_ID abaixo (o ID que está no link da planilha)
+ *   4. Rode a função "prepararAba" uma vez (cria a aba API e pede autorização)
+ *   5. Implantar > Nova implantação > App da Web
  *        Executar como: EU
  *        Quem tem acesso: QUALQUER PESSOA
  *      Copie o link que termina em /exec.
- *   5. Cole esse link na variável API_URL do index.html e publique no Pages.
+ *   6. Cole esse link na variável API_URL do index.html e publique no Pages.
  *
- * "Executar como: EU" é o que resolve o acesso: os operadores usam o grid
- * sem ter permissão de edição na planilha. "Qualquer pessoa" é necessário
- * para o front no github.io conseguir chamar a API sem login do Google.
+ * "Executar como: EU" resolve o acesso: os operadores usam o grid sem ter
+ * permissão na planilha. "Qualquer pessoa" é necessário para o github.io
+ * chamar a API sem login do Google.
+ *
+ * LEITURA usa JSONP (?callback=...) e GRAVAÇÃO usa POST — os dois evitam o
+ * bloqueio de CORS do Apps Script, que não deixa o código enviar cabeçalhos.
  * ---------------------------------------------------------------
  */
 
@@ -28,41 +32,62 @@
    PONTOS DE ENTRADA DA API
    ============================================================ */
 
-/** Leituras. ?acao=config | ?acao=dia&data=15/07/2026 | (sem acao) = config + dia de hoje. */
+/**
+ * Leituras (JSONP).
+ *   ?acao=ping                     -> teste rápido ("pong")
+ *   ?acao=config                   -> rotas, setores, operadores
+ *   ?acao=dia&data=15/07/2026      -> lançamentos do dia
+ *   (sem acao)                     -> config + dia de hoje
+ * Com ?callback=nome, responde nome(json) para funcionar por <script> (sem CORS).
+ */
 function doGet(e) {
   const p = (e && e.parameter) || {};
+  let out;
   try {
-    let dados;
-    if (p.acao === 'config') {
-      dados = getConfig();
+    if (p.acao === 'ping') {
+      out = { ok: true, dados: 'pong', aba: CONFIG.ABA };
+    } else if (p.acao === 'config') {
+      out = { ok: true, dados: getConfig() };
     } else if (p.acao === 'dia') {
-      dados = carregarDia(normalizarData(p.data) || p.data);
+      out = { ok: true, dados: carregarDia(normalizarData(p.data) || p.data) };
     } else {
       const cfg = getConfig();
-      dados = { config: cfg, dia: carregarDia(cfg.hoje) };
+      out = { ok: true, dados: { config: cfg, dia: carregarDia(cfg.hoje) } };
     }
-    return jsonOut({ ok: true, dados: dados });
   } catch (err) {
-    return jsonOut({ ok: false, mensagem: 'Erro: ' + err });
+    out = { ok: false, mensagem: 'Erro: ' + err };
   }
+  return responder(out, p.callback);
 }
 
-/** Gravação. O front envia o corpo como texto JSON (sem preflight CORS). */
+/** Gravação. O front envia o corpo como texto (POST simples, sem preflight CORS). */
 function doPost(e) {
+  let out;
   try {
     const payload = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    return jsonOut(salvarDia(payload));
+    out = salvarDia(payload);
   } catch (err) {
-    return jsonOut({ ok: false, mensagem: 'Erro: ' + err });
+    out = { ok: false, mensagem: 'Erro: ' + err };
   }
+  return responder(out, (e && e.parameter && e.parameter.callback));
 }
 
-function jsonOut(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
+/** JSON puro, ou nome(JSON) quando há callback (JSONP). */
+function responder(obj, callback) {
+  const txt = JSON.stringify(obj);
+  if (callback) {
+    const cb = String(callback).replace(/[^\w$.]/g, ''); // só identificador seguro
+    return ContentService.createTextOutput(cb + '(' + txt + ');')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(txt).setMimeType(ContentService.MimeType.JSON);
 }
 
 const CONFIG = {
+  // ID da planilha (o trecho entre /d/ e /edit no link). Abrir por ID faz o
+  // script funcionar mesmo se for um projeto standalone, não preso à planilha.
+  PLANILHA_ID: '1V5pLk9oMbfePZMSd0QNdPq2V1KAgyZ7QkoASqVBXId4',
+
   ABA: 'EQUIPE SECOS API',
 
   // Ordem das rotas no grid, de cima para baixo (igual à planilha antiga).
@@ -110,8 +135,15 @@ function prepararAba() {
   return aba.getName();
 }
 
+function pegarPlanilha() {
+  if (CONFIG.PLANILHA_ID) return SpreadsheetApp.openById(CONFIG.PLANILHA_ID);
+  const ativa = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ativa) throw new Error('Sem planilha: defina CONFIG.PLANILHA_ID.');
+  return ativa;
+}
+
 function pegarAba() {
-  const planilha = SpreadsheetApp.getActiveSpreadsheet();
+  const planilha = pegarPlanilha();
   let aba = planilha.getSheetByName(CONFIG.ABA);
   if (!aba) {
     aba = planilha.insertSheet(CONFIG.ABA);

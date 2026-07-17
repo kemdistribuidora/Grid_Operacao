@@ -287,30 +287,83 @@
      ================================================================ */
   var API_URL = 'https://script.google.com/macros/s/AKfycbwHa1E0MGi1_U6bkSAUe58SP5Tov6CBH_ytIlg7QojHuyNmvLsrCY938emr5ccBJcxfWg/exec';
 
-  // Seam de teste: em produção nada seta __API_URL__, então isto não faz nada.
-  if (typeof window.__API_URL__ === 'string' && window.__API_URL__) API_URL = window.__API_URL__;
+  // Seam de teste: em produção __API_URL__ nunca é definido, então isto não faz nada.
+  if (typeof window.__API_URL__ === 'string') API_URL = window.__API_URL__;
 
   var MODO_PREVIEW = !API_URL;
 
   /* ================= Backend ================= */
-  // Real: conversa com o Apps Script por fetch.
+  // Real: conversa com o Apps Script.
+  //  - LEITURA por JSONP (tag <script>): não passa por CORS.
+  //  - GRAVAÇÃO por POST no-cors + releitura que confirma que salvou.
+  // O Apps Script não deixa o código enviar cabeçalho CORS, por isso este
+  // caminho em vez de fetch+json (que o navegador bloquearia).
   function RealBackend(url) {
-    function get(params) {
-      var qs = Object.keys(params)
-        .map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); })
-        .join('&');
-      return fetch(url + (qs ? '?' + qs : ''))
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (j) { if (!j.ok) throw new Error(j.mensagem || 'erro'); return j.dados; });
+    var contador = 0;
+
+    // JSONP: injeta <script src="url?callback=fn&..."> e espera a chamada de fn.
+    function jsonp(params) {
+      return new Promise(function (resolve, reject) {
+        contador += 1;
+        var cb = '__grid_cb_' + contador;
+        var script = document.createElement('script');
+        var pronto = false;
+
+        var timer = setTimeout(function () {
+          finalizar();
+          reject(new Error('sem resposta do servidor (tempo esgotado). Confira o link /exec e o acesso "Qualquer pessoa".'));
+        }, 25000);
+
+        function finalizar() {
+          if (pronto) return;
+          pronto = true;
+          clearTimeout(timer);
+          try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+          if (script.parentNode) script.parentNode.removeChild(script);
+        }
+
+        window[cb] = function (resposta) {
+          finalizar();
+          if (!resposta || !resposta.ok) reject(new Error((resposta && resposta.mensagem) || 'erro'));
+          else resolve(resposta.dados);
+        };
+
+        var qs = ['callback=' + cb];
+        Object.keys(params).forEach(function (k) {
+          qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+        });
+        script.src = url + '?' + qs.join('&');
+        script.onerror = function () { finalizar(); reject(new Error('falha ao contatar o servidor (rede ou link errado).')); };
+        document.body.appendChild(script);
+      });
     }
+
+    function contarLancamentos(registros) {
+      var n = 0;
+      Object.keys(registros || {}).forEach(function (rota) {
+        var r = registros[rota] || {};
+        ['secos', 'resfriado'].forEach(function (p) {
+          if ((r[p + '_operador'] || r[p + '_inicio'] || r[p + '_fim'])) n += 1;
+        });
+      });
+      return n;
+    }
+
     return {
-      inicio: function () { return get({}); },
-      carregarDia: function (data) { return get({ acao: 'dia', data: data }); },
+      inicio: function () { return jsonp({}); },
+      carregarDia: function (data) { return jsonp({ acao: 'dia', data: data }); },
       salvarDia: function (payload) {
-        // Body como string => Content-Type text/plain => sem preflight CORS.
-        // NÃO trocar por headers application/json: o Apps Script bloquearia.
-        return fetch(url, { method: 'POST', body: JSON.stringify(payload) })
-          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+        // POST no-cors: envia sem exigir CORS (resposta fica opaca, não dá pra ler).
+        // Por isso, logo depois relemos o dia por JSONP para CONFIRMAR que salvou.
+        return fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
+          .then(function () { return jsonp({ acao: 'dia', data: payload.data }); })
+          .then(function (dados) {
+            var n = contarLancamentos(dados.registros);
+            return { ok: true, mensagem: 'Salvo e confirmado: ' + n + ' lançamento(s) na planilha' };
+          })
+          .catch(function (e) {
+            return { ok: false, mensagem: 'Não deu pra confirmar o salvamento: ' + e.message };
+          });
       },
     };
   }

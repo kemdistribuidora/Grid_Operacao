@@ -64,6 +64,7 @@ Dinâmica soma sem esforço.
 |---|---|
 | `index.html` | A tela (servida pelo GitHub Pages) |
 | `apps-script/Codigo.gs` | A API: lê e grava na aba `EQUIPE SECOS API` |
+| `imagens/` | Logo (`Distribuidora_KEM.png`) e ícone (`icone.png`). **Precisa ir no push** para a logo aparecer no Pages |
 | `.github/workflows/pages.yml` | Publica o Pages sozinho a cada push |
 
 ## Ver o visual agora (sem nada configurado)

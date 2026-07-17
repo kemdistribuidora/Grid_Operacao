@@ -89,8 +89,8 @@ const CONFIG = {
 
   ABA: 'EQUIPE SECOS API',
 
-  // Ordem das rotas no grid, de cima para baixo (igual à planilha antiga).
-  ROTAS: [35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 36, 37, 38],
+  // Números dos caminhões (do menor ao maior).
+  ROTAS: [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38],
 
   // id  = usado internamente (não muda)
   // nome = o que aparece na barra de setores e grava na coluna Setor
@@ -311,22 +311,19 @@ function canonizar(l) {
   return linha;
 }
 
-/** Data crescente; dentro do dia, a ordem das rotas do grid; Secos 2 antes de Resfriado. */
+/** Ordena: data crescente; caminhão crescente (menor->maior); setor na ordem do CONFIG. */
 function ordenar(linhas) {
-  const posRota = {};
-  CONFIG.ROTAS.forEach((r, i) => { posRota[r] = i; });
   const posSetor = {};
   CONFIG.SETORES.forEach((s, i) => { posSetor[s.nome] = i; });
-  const ordemDe = (obj, chave) => (chave in obj ? obj[chave] : 999);
+  const ordemSetor = nome => (nome in posSetor ? posSetor[nome] : 999);
+  const numCam = v => { const n = Number(String(v).trim()); return isNaN(n) ? 1e9 : n; };
 
   return linhas.slice().sort((a, b) => {
     const dA = dataParaNumero(a[COL.DATA - 1]), dB = dataParaNumero(b[COL.DATA - 1]);
     if (dA !== dB) return dA - dB;
-    const rA = ordemDe(posRota, String(a[COL.ROTA - 1]).trim());
-    const rB = ordemDe(posRota, String(b[COL.ROTA - 1]).trim());
-    if (rA !== rB) return rA - rB;
-    return ordemDe(posSetor, String(a[COL.SETOR - 1]).trim())
-         - ordemDe(posSetor, String(b[COL.SETOR - 1]).trim());
+    const cA = numCam(a[COL.ROTA - 1]), cB = numCam(b[COL.ROTA - 1]);
+    if (cA !== cB) return cA - cB;
+    return ordemSetor(String(a[COL.SETOR - 1]).trim()) - ordemSetor(String(b[COL.SETOR - 1]).trim());
   });
 }
 

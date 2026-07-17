@@ -2,38 +2,51 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>Grid de Operação — Equipe Secos</title>
+<title>KEM — Grid de Operação</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="imagens/icone.png">
+<link rel="apple-touch-icon" href="imagens/icone.png">
 <style>
   :root {
-    --borda: #9aa0a6;
-    --borda-forte: #3c4043;
-    --cabecalho: #d9d9d9;
-    --dado: #b45309;
-    --ok: #137333;
+    /* Cores da marca KEM */
+    --azul: #123a6b;         /* azul-marinho da logo */
+    --azul-escuro: #0e2e56;
+    --azul-clarinho: #eaf1fb;
+    --laranja: #f7941d;      /* laranja da logo */
+    --vermelho: #e5341f;     /* vermelho da logo */
+    --grad: linear-gradient(135deg, #f7a81b, #e5341f);
+
+    --fundo: #eef1f6;
+    --texto: #1f2733;
+    --texto-suave: #5b6675;
+    --borda: #c7cfdb;
+    --borda-forte: var(--azul);
+    --ok: #1f8a4c;
+    --ok-escuro: #176c3b;
     --erro: #c5221f;
-    --aviso-bg: #fce8e6;
-    --foco: #1a73e8;
+    --aviso-bg: #fdecea;
   }
 
   * { box-sizing: border-box; }
 
+  html { background: var(--fundo); }
+
   body {
-    margin: 0;
+    margin: 0 auto;
+    max-width: 1120px;
     padding: 16px;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 16px;
-    background: #f1f3f4;
-    color: #202124;
+    color: var(--texto);
   }
 
   /* ---------- Aviso de preview ---------- */
   #banner {
-    background: #fef7e0;
-    border: 1px solid #f9ab00;
-    color: #7a5c00;
-    padding: 8px 16px;
-    border-radius: 8px;
+    background: #fff4e0;
+    border: 1px solid var(--laranja);
+    color: #8a5300;
+    padding: 10px 16px;
+    border-radius: 10px;
     margin-bottom: 12px;
     font-size: 14px;
     font-weight: bold;
@@ -43,102 +56,106 @@
   .topo {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 18px;
     flex-wrap: wrap;
     background: #fff;
     border: 1px solid var(--borda);
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-bottom: 12px;
+    border-top: 5px solid transparent;
+    border-image: var(--grad) 1;
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(18, 58, 107, .08);
     position: sticky;
     top: 0;
     z-index: 20;
   }
 
-  .topo h1 {
+  .logo { height: 54px; width: auto; display: block; }
+
+  .titulo { margin-right: auto; line-height: 1.15; }
+  .titulo h1 {
     margin: 0;
-    font-size: 20px;
+    font-size: 22px;
     font-weight: bold;
-    margin-right: auto;
+    color: var(--azul);
   }
+  .titulo .sub { font-size: 13px; color: var(--texto-suave); font-weight: bold; }
 
-  .campo-data {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .campo-data label { font-weight: bold; }
-
+  .campo-data { display: flex; align-items: center; gap: 8px; }
+  .campo-data label { font-weight: bold; color: var(--azul); }
   .campo-data input {
     font-size: 18px;
-    padding: 8px;
+    padding: 10px;
     border: 2px solid var(--borda);
-    border-radius: 6px;
+    border-radius: 8px;
     font-family: inherit;
   }
+  .campo-data input:focus { outline: none; border-color: var(--azul); }
 
   button {
     font-family: inherit;
     font-size: 17px;
     font-weight: bold;
-    padding: 12px 28px;
+    padding: 13px 30px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
   }
 
-  #salvar { background: var(--ok); color: #fff; }
-  #salvar:hover { background: #0d652d; }
-  #salvar:disabled { background: #9aa0a6; cursor: default; }
+  #salvar { background: var(--ok); color: #fff; box-shadow: 0 2px 0 var(--ok-escuro); }
+  #salvar:hover { background: var(--ok-escuro); }
+  #salvar:active { transform: translateY(1px); box-shadow: none; }
+  #salvar:disabled { background: #a9b2c0; box-shadow: none; cursor: default; }
 
   #status {
     font-weight: bold;
-    min-width: 200px;
+    min-width: 190px;
     text-align: right;
+    font-size: 15px;
   }
   #status.ok { color: var(--ok); }
   #status.erro { color: var(--erro); }
-  #status.pendente { color: var(--dado); }
+  #status.pendente { color: var(--vermelho); }
 
   /* ---------- Barra de setores (as "flags") ---------- */
   .setores {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
   }
 
   .setor-btn {
-    flex: 1 1 auto;
-    min-width: 130px;
-    padding: 14px 18px;
-    font-size: 18px;
+    flex: 1 1 0;
+    min-width: 150px;
+    padding: 16px 18px;
+    font-size: 19px;
     font-weight: bold;
     background: #fff;
-    color: #5f6368;
+    color: var(--texto-suave);
     border: 2px solid var(--borda);
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
-    transition: transform .05s;
+    box-shadow: 0 1px 3px rgba(18, 58, 107, .06);
+    transition: transform .05s, border-color .1s;
   }
-  .setor-btn:hover { border-color: var(--borda-forte); }
+  .setor-btn:hover { border-color: var(--azul); color: var(--azul); }
   .setor-btn:active { transform: translateY(1px); }
   .setor-btn.ativo {
-    color: #202124;
-    border-color: var(--borda-forte);
-    box-shadow: inset 0 -5px 0 var(--borda-forte);
+    color: var(--azul);
+    border-color: var(--azul);
+    box-shadow: inset 0 -6px 0 var(--laranja), 0 1px 3px rgba(18, 58, 107, .1);
   }
 
   /* ---------- Grid ---------- */
   .moldura {
     background: #fff;
-    border: 2px solid var(--borda-forte);
-    border-radius: 4px;
+    border: 1px solid var(--borda);
+    border-radius: 12px;
     overflow: auto;
-    max-height: calc(100vh - 210px);
-    max-width: 760px;
-    margin: 0 auto;
+    max-height: calc(100vh - 230px);
+    box-shadow: 0 2px 8px rgba(18, 58, 107, .08);
   }
 
   table {
@@ -148,34 +165,35 @@
   }
 
   th, td {
-    border: 1px solid var(--borda);
+    border: 1px solid #dfe4ec;
     padding: 0;
     text-align: center;
-    height: 44px;
+    height: 52px;
   }
 
   thead th {
-    background: var(--cabecalho);
-    font-size: 15px;
+    background: var(--azul);
+    color: #fff;
+    font-size: 16px;
     font-weight: bold;
-    padding: 10px 6px;
+    padding: 12px 6px;
     position: sticky;
     top: 0;
     z-index: 10;
   }
-
-  #cab-setor { font-size: 17px; }
+  #cab-setor { font-size: 18px; }
 
   .cam {
-    background: var(--cabecalho);
+    background: var(--azul-clarinho);
+    color: var(--azul);
     font-weight: bold;
-    font-size: 18px;
-    width: 80px;
-    min-width: 80px;
+    font-size: 21px;
+    width: 84px;
+    min-width: 84px;
   }
-  .col-op { width: 250px; min-width: 200px; }
-  .col-hora { width: 120px; min-width: 100px; }
-  .col-time { width: 90px; min-width: 80px; }
+  .col-op { width: auto; }
+  .col-hora { width: 155px; }
+  .col-time { width: 120px; }
 
   /* ---------- Campos ---------- */
   select, .hora {
@@ -184,23 +202,27 @@
     border: none;
     background: transparent;
     font-family: inherit;
-    font-size: 17px;
-    color: var(--dado);
+    font-size: 18px;
+    color: var(--texto);
     text-align: center;
-    padding: 0 4px;
+    padding: 0 6px;
     cursor: pointer;
   }
+  select { font-weight: bold; }
 
   .hora {
-    font-size: 19px;
+    font-size: 21px;
+    font-weight: bold;
     letter-spacing: 1px;
+    color: var(--azul);
     cursor: text;
   }
+  .hora::placeholder { color: #b7c0cd; font-weight: normal; letter-spacing: normal; }
 
   select:focus, .hora:focus {
-    outline: 3px solid var(--foco);
+    outline: 3px solid var(--laranja);
     outline-offset: -3px;
-    background: #e8f0fe;
+    background: #fff7ec;
   }
 
   .hora.invalido {
@@ -211,38 +233,48 @@
 
   td.time {
     font-weight: bold;
-    font-size: 17px;
+    font-size: 19px;
     color: var(--ok);
-    background: #f8f9fa;
+    background: #f4f7fb;
   }
   td.time.invalido { color: var(--erro); background: var(--aviso-bg); }
 
-  tr.preenchida .cam { background: #ceead6; }
-  tbody tr:hover td { background: #f8f9fa; }
-  tbody tr:hover .cam { background: #c1d9c8; }
+  tr.preenchida .cam { background: #d8ecdd; color: var(--ok-escuro); }
+  tbody tr:nth-child(even) td { background: #fafbfd; }
+  tbody tr:nth-child(even) td.time { background: #eff4f9; }
+  tbody tr:hover td { background: #fff7ec; }
+  tbody tr:hover .cam { background: #ffe6c2; }
 
   /* ---------- Rodapé de ajuda ---------- */
   .ajuda {
-    margin: 12px auto 0;
-    max-width: 760px;
-    padding: 12px 16px;
+    margin-top: 14px;
+    padding: 14px 18px;
     background: #fff;
     border: 1px solid var(--borda);
-    border-radius: 8px;
-    font-size: 14px;
-    color: #5f6368;
-    line-height: 1.6;
+    border-left: 5px solid var(--laranja);
+    border-radius: 10px;
+    font-size: 15px;
+    color: var(--texto-suave);
+    line-height: 1.7;
   }
-  .ajuda b { color: #202124; }
+  .ajuda b { color: var(--azul); }
 
   #carregando {
-    padding: 40px;
+    padding: 60px;
     text-align: center;
-    font-size: 18px;
-    color: #5f6368;
+    font-size: 20px;
+    color: var(--texto-suave);
   }
 
   .oculto { display: none !important; }
+
+  /* ---------- Telas menores ---------- */
+  @media (max-width: 700px) {
+    .titulo { order: 3; width: 100%; margin: 4px 0; }
+    #status { min-width: 0; width: 100%; text-align: left; }
+    .col-hora { width: 110px; }
+    .col-time { width: 90px; }
+  }
 </style>
 </head>
 <body>
@@ -250,7 +282,11 @@
 <div id="banner" class="oculto"></div>
 
 <div class="topo">
-  <h1>Grid de Operação</h1>
+  <img class="logo" src="imagens/Distribuidora_KEM.png" alt="KEM Distribuidora de Alimentos">
+  <div class="titulo">
+    <h1>Grid de Operação</h1>
+    <div class="sub">Tempos de separação</div>
+  </div>
   <div class="campo-data">
     <label for="data">Data:</label>
     <input type="date" id="data">
@@ -487,7 +523,8 @@
     var corpo = document.getElementById('corpo');
     corpo.innerHTML = '';
 
-    CFG.caminhoes.forEach(function (cam) {
+    var caminhoes = CFG.caminhoes.slice().sort(function (a, b) { return Number(a) - Number(b); });
+    caminhoes.forEach(function (cam) {
       var tr = document.createElement('tr');
       tr.dataset.cam = cam;
 

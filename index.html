@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Grid de Operação — Equipe Secos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --borda: #9aa0a6;
+    --borda-forte: #3c4043;
+    --cabecalho: #d9d9d9;
+    --dado: #b45309;
+    --ok: #137333;
+    --erro: #c5221f;
+    --aviso-bg: #fce8e6;
+    --foco: #1a73e8;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 16px;
+    background: #f1f3f4;
+    color: #202124;
+  }
+
+  /* ---------- Aviso de preview ---------- */
+  #banner {
+    background: #fef7e0;
+    border: 1px solid #f9ab00;
+    color: #7a5c00;
+    padding: 8px 16px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  /* ---------- Barra do topo ---------- */
+  .topo {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    background: #fff;
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .topo h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: bold;
+    margin-right: auto;
+  }
+
+  .campo-data {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .campo-data label { font-weight: bold; }
+
+  .campo-data input {
+    font-size: 18px;
+    padding: 8px;
+    border: 2px solid var(--borda);
+    border-radius: 6px;
+    font-family: inherit;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: bold;
+    padding: 12px 28px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  #salvar {
+    background: var(--ok);
+    color: #fff;
+  }
+  #salvar:hover { background: #0d652d; }
+  #salvar:disabled { background: #9aa0a6; cursor: default; }
+
+  #status {
+    font-weight: bold;
+    min-width: 200px;
+    text-align: right;
+  }
+  #status.ok { color: var(--ok); }
+  #status.erro { color: var(--erro); }
+  #status.pendente { color: var(--dado); }
+
+  /* ---------- Grid ---------- */
+  .moldura {
+    background: #fff;
+    border: 2px solid var(--borda-forte);
+    border-radius: 4px;
+    overflow: auto;
+    max-height: calc(100vh - 150px);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    background: #fff;
+  }
+
+  th, td {
+    border: 1px solid var(--borda);
+    padding: 0;
+    text-align: center;
+    height: 42px;
+  }
+
+  thead th {
+    background: var(--cabecalho);
+    font-size: 15px;
+    font-weight: bold;
+    padding: 8px 6px;
+    position: sticky;
+    z-index: 10;
+  }
+
+  thead tr:first-child th { top: 0; height: 32px; }
+  thead tr:last-child th { top: 32px; }
+
+  .setor-secos { background: #e8f0fe; }
+  .setor-resfriado { background: #fce8e6; }
+
+  /* Larguras: nome de dupla ("Marcelo/Alzoni") precisa caber; hora tem 5 caracteres */
+  .rota {
+    background: var(--cabecalho);
+    font-weight: bold;
+    font-size: 17px;
+    width: 56px;
+    min-width: 56px;
+  }
+  .col-op { width: 160px; min-width: 160px; }
+  .col-hora { width: 100px; min-width: 100px; }
+  .col-time { width: 80px; min-width: 80px; }
+
+  /* Divisória entre os dois setores */
+  .divisoria { border-left: 3px solid var(--borda-forte); }
+
+  /* ---------- Campos ---------- */
+  select, .hora {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 16px;
+    color: var(--dado);
+    text-align: center;
+    padding: 0 4px;
+    cursor: pointer;
+  }
+
+  .hora {
+    font-size: 18px;
+    letter-spacing: 1px;
+    cursor: text;
+  }
+
+  select:focus, .hora:focus {
+    outline: 3px solid var(--foco);
+    outline-offset: -3px;
+    background: #e8f0fe;
+  }
+
+  .hora.invalido {
+    background: var(--aviso-bg);
+    color: var(--erro);
+    font-weight: bold;
+  }
+
+  td.time {
+    font-weight: bold;
+    font-size: 16px;
+    color: var(--ok);
+    background: #f8f9fa;
+    width: 80px;
+  }
+  td.time.invalido { color: var(--erro); background: var(--aviso-bg); }
+
+  /* Linha com algum dado preenchido */
+  tr.preenchida .rota { background: #ceead6; }
+
+  tbody tr:hover td { background: #f8f9fa; }
+  tbody tr:hover .rota { background: #c1d9c8; }
+
+  /* ---------- Rodapé de ajuda ---------- */
+  .ajuda {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: #fff;
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+    font-size: 14px;
+    color: #5f6368;
+    line-height: 1.6;
+  }
+  .ajuda b { color: #202124; }
+
+  /* ---------- Carregando ---------- */
+  #carregando {
+    padding: 40px;
+    text-align: center;
+    font-size: 18px;
+    color: #5f6368;
+  }
+
+  .oculto { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="banner" class="oculto"></div>
+
+<div class="topo">
+  <h1>Grid de Operação — Equipe Secos</h1>
+
+  <div class="campo-data">
+    <label for="data">Data:</label>
+    <input type="date" id="data">
+  </div>
+
+  <button id="salvar" disabled>Salvar na planilha</button>
+  <div id="status"></div>
+</div>
+
+<div id="carregando">Carregando...</div>
+
+<div class="moldura oculto" id="moldura">
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2" class="rota">#</th>
+        <th colspan="4" class="setor-secos">SECOS 2</th>
+        <th colspan="4" class="setor-resfriado divisoria">RESFRIADO</th>
+      </tr>
+      <tr>
+        <th class="setor-secos col-op">Operador</th>
+        <th class="setor-secos col-hora">Hora início</th>
+        <th class="setor-secos col-hora">Fim</th>
+        <th class="setor-secos col-time">Time</th>
+        <th class="setor-resfriado divisoria col-op">Operador</th>
+        <th class="setor-resfriado col-hora">Hora início</th>
+        <th class="setor-resfriado col-hora">Fim</th>
+        <th class="setor-resfriado col-time">Time</th>
+      </tr>
+    </thead>
+    <tbody id="corpo"></tbody>
+  </table>
+</div>
+
+<div class="ajuda">
+  <b>Como preencher:</b>
+  digite a hora só com números — <b>1830</b> vira <b>18:30</b> sozinho.
+  Use <b>Tab</b> ou <b>Enter</b> para pular para o próximo campo.
+  A coluna <b>Time</b> se calcula sozinha, não precisa preencher.
+  Deixe em branco as rotas que não rodaram.
+  Quando terminar, clique em <b>Salvar na planilha</b>.
+</div>
+
+<script>
+  /* ================================================================
+     CONEXÃO COM A PLANILHA
+
+     Cole abaixo o link /exec do Web App do Apps Script (o passo 4 do
+     README). Enquanto estiver vazio, a página roda em MODO PREVIEW:
+     funciona para testar o visual, mas nada vai para a planilha.
+     ================================================================ */
+  var API_URL = 'https://script.google.com/macros/s/AKfycbxML47cZe_IJv0FT3bBUzxa6RktEniwvA2ML8WFqxSAv-jeC0awk1otjv9UA9Zm-bQ4Xw/exec';
+
+  // Seam de teste: em produção nada seta __API_URL__, então isto não faz nada.
+  if (typeof window.__API_URL__ === 'string' && window.__API_URL__) API_URL = window.__API_URL__;
+
+  var MODO_PREVIEW = !API_URL;
+
+  /* ================= Backend ================= */
+  // Real: conversa com o Apps Script por fetch.
+  function RealBackend(url) {
+    function get(params) {
+      var qs = Object.keys(params)
+        .map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); })
+        .join('&');
+      return fetch(url + (qs ? '?' + qs : ''))
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (j) { if (!j.ok) throw new Error(j.mensagem || 'erro'); return j.dados; });
+    }
+    return {
+      inicio: function () { return get({}); },
+      carregarDia: function (data) { return get({ acao: 'dia', data: data }); },
+      salvarDia: function (payload) {
+        // Body como string => Content-Type text/plain => sem preflight CORS.
+        // NÃO trocar por headers application/json: o Apps Script bloquearia.
+        return fetch(url, { method: 'POST', body: JSON.stringify(payload) })
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+      },
+    };
+  }
+
+  // Preview: tudo na memória, para testar sem planilha.
+  function PreviewBackend() {
+    var mem = {};
+    var config = {
+      rotas: [35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,36,37,38],
+      operadores: {
+        'Secos 2': ['Julio','Alzoni','Marcelo','Julio/Alzoni','Julio/Marcelo','Marcelo/Alzoni'],
+        'Resfriado': ['Helio','Alaor'],
+      },
+      hoje: new Date().toLocaleDateString('pt-BR'),
+    };
+    function dia(d) { return { data: d, temDados: !!mem[d], registros: mem[d] || {} }; }
+    return {
+      inicio: function () { return Promise.resolve({ config: config, dia: dia(config.hoje) }); },
+      carregarDia: function (d) { return Promise.resolve(dia(d)); },
+      salvarDia: function (p) {
+        mem[p.data] = p.registros;
+        return Promise.resolve({ ok: true, mensagem: 'PREVIEW — não foi para a planilha' });
+      },
+    };
+  }
+
+  var Backend = MODO_PREVIEW ? PreviewBackend() : RealBackend(API_URL);
+
+  var CFG = null;
+  var sujo = false; // tem alteração não salva?
+
+  /* ================= Início ================= */
+  Backend.inicio().then(function (res) {
+    CFG = res.config;
+    document.getElementById('data').value = paraISO(CFG.hoje);
+    desenharGrid();
+    document.getElementById('carregando').classList.add('oculto');
+    document.getElementById('moldura').classList.remove('oculto');
+    document.getElementById('salvar').disabled = false;
+
+    preencher(res.dia.registros);
+    definirStatus(res.dia.temDados ? 'Dia carregado da planilha' : 'Dia novo — nada lançado ainda', 'ok');
+
+    if (MODO_PREVIEW) {
+      var b = document.getElementById('banner');
+      b.textContent = 'MODO PREVIEW — nada é gravado na planilha. '
+        + 'Para conectar, cole o link do Apps Script na variável API_URL do index.html.';
+      b.classList.remove('oculto');
+    }
+
+    document.getElementById('data').addEventListener('change', function () {
+      if (sujo && !confirm('Você tem alterações não salvas. Trocar de data vai descartá-las. Continuar?')) {
+        this.value = paraISO(dataAtualBR());
+        return;
+      }
+      carregarDia();
+    });
+
+    document.getElementById('salvar').addEventListener('click', salvar);
+
+    window.addEventListener('beforeunload', function (e) {
+      if (sujo) { e.preventDefault(); e.returnValue = ''; }
+    });
+  }).catch(function (e) {
+    document.getElementById('carregando').textContent =
+      'Erro ao carregar: ' + e.message + '. Confira o link do Apps Script (API_URL).';
+  });
+
+  /* ================= Desenho ================= */
+  function desenharGrid() {
+    var corpo = document.getElementById('corpo');
+    corpo.innerHTML = '';
+
+    CFG.rotas.forEach(function (rota) {
+      var tr = document.createElement('tr');
+      tr.dataset.rota = rota;
+
+      var tdRota = document.createElement('td');
+      tdRota.className = 'rota';
+      tdRota.textContent = rota;
+      tr.appendChild(tdRota);
+
+      montarSetor(tr, rota, 'secos', CFG.operadores['Secos 2'], false);
+      montarSetor(tr, rota, 'resfriado', CFG.operadores['Resfriado'], true);
+
+      corpo.appendChild(tr);
+    });
+  }
+
+  function montarSetor(tr, rota, prefixo, listaOperadores, primeiraColunaDivide) {
+    // Operador
+    var tdOp = document.createElement('td');
+    if (primeiraColunaDivide) tdOp.className = 'divisoria';
+    var sel = document.createElement('select');
+    sel.dataset.campo = prefixo + '_operador';
+    sel.appendChild(new Option('', ''));
+    listaOperadores.forEach(function (nome) { sel.appendChild(new Option(nome, nome)); });
+    sel.addEventListener('change', function () { marcarSujo(); atualizarLinha(tr); });
+    tdOp.appendChild(sel);
+    tr.appendChild(tdOp);
+
+    // Início e Fim
+    ['inicio', 'fim'].forEach(function (qual) {
+      var td = document.createElement('td');
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'hora';
+      inp.inputMode = 'numeric';
+      inp.maxLength = 5;
+      inp.placeholder = '--:--';
+      inp.dataset.campo = prefixo + '_' + qual;
+      ligarCampoHora(inp, tr);
+      td.appendChild(inp);
+      tr.appendChild(td);
+    });
+
+    // Time (calculado)
+    var tdTime = document.createElement('td');
+    tdTime.className = 'time';
+    tdTime.dataset.campo = prefixo + '_time';
+    tr.appendChild(tdTime);
+  }
+
+  /* ================= Campo de hora ================= */
+  function ligarCampoHora(inp, tr) {
+    // Enquanto digita: só números, e insere os ":" sozinho
+    inp.addEventListener('input', function () {
+      var d = inp.value.replace(/\D/g, '').slice(0, 4);
+      inp.value = d.length >= 3 ? d.slice(0, 2) + ':' + d.slice(2) : d;
+      marcarSujo();
+      atualizarLinha(tr);
+    });
+
+    // Ao sair: completa formatos curtos ("8" -> 08:00, "830" -> 08:30)
+    inp.addEventListener('blur', function () {
+      inp.value = normalizarHora(inp.value);
+      atualizarLinha(tr);
+    });
+
+    // Enter pula pro próximo campo, igual planilha
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); proximoCampo(inp); }
+    });
+
+    inp.addEventListener('focus', function () { inp.select(); });
+  }
+
+  function normalizarHora(texto) {
+    var d = String(texto).replace(/\D/g, '');
+    if (!d) return '';
+    if (d.length === 1) d = '0' + d + '00';      // 8    -> 0800
+    else if (d.length === 2) d = d + '00';       // 18   -> 1800
+    else if (d.length === 3) d = '0' + d;        // 830  -> 0830
+    var h = d.slice(0, 2), m = d.slice(2, 4);
+    if (Number(h) > 23 || Number(m) > 59) return texto; // deixa errado à mostra
+    return h + ':' + m;
+  }
+
+  function horaValida(v) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(v); }
+
+  function proximoCampo(atual) {
+    var campos = Array.prototype.slice.call(
+      document.querySelectorAll('#corpo select, #corpo .hora'));
+    var i = campos.indexOf(atual);
+    if (i > -1 && i < campos.length - 1) campos[i + 1].focus();
+  }
+
+  /* ================= Cálculo ao vivo ================= */
+  function atualizarLinha(tr) {
+    ['secos', 'resfriado'].forEach(function (p) {
+      var ini = tr.querySelector('[data-campo="' + p + '_inicio"]');
+      var fim = tr.querySelector('[data-campo="' + p + '_fim"]');
+      var td = tr.querySelector('[data-campo="' + p + '_time"]');
+
+      [ini, fim].forEach(function (c) {
+        var erradoDeFato = c.value !== '' && c.value.length >= 4 && !horaValida(c.value);
+        c.classList.toggle('invalido', erradoDeFato);
+      });
+
+      if (horaValida(ini.value) && horaValida(fim.value)) {
+        var diff = minutos(fim.value) - minutos(ini.value);
+        if (diff < 0) diff += 24 * 60; // turno que vira o dia
+        td.textContent = Math.floor(diff / 60) + ':' + String(diff % 60).padStart(2, '0');
+        // Mais de 12h quase certamente é digitação trocada, não turno noturno
+        td.classList.toggle('invalido', diff > 12 * 60);
+        td.title = diff > 12 * 60 ? 'Tempo muito longo — confira as horas' : '';
+      } else {
+        td.textContent = '';
+        td.classList.remove('invalido');
+        td.title = '';
+      }
+    });
+
+    var temDado = Array.prototype.some.call(
+      tr.querySelectorAll('select, .hora'), function (c) { return c.value !== ''; });
+    tr.classList.toggle('preenchida', temDado);
+  }
+
+  function minutos(hhmm) {
+    var p = hhmm.split(':');
+    return Number(p[0]) * 60 + Number(p[1]);
+  }
+
+  /* ================= Carregar / Salvar ================= */
+  function carregarDia() {
+    travar(true, 'Carregando...');
+    Backend.carregarDia(dataAtualBR())
+      .then(function (res) {
+        preencher(res.registros);
+        sujo = false;
+        travar(false, res.temDados ? 'Dia carregado da planilha' : 'Dia novo — nada lançado ainda', 'ok');
+      })
+      .catch(function (e) { travar(false, 'Erro: ' + e.message, 'erro'); });
+  }
+
+  function preencher(registros) {
+    registros = registros || {};
+    document.querySelectorAll('#corpo tr').forEach(function (tr) {
+      var r = registros[tr.dataset.rota] || {};
+      tr.querySelectorAll('select, .hora').forEach(function (c) {
+        var v = r[c.dataset.campo] || '';
+        c.value = c.classList.contains('hora') ? normalizarHora(v) : v;
+        // Operador que veio da planilha mas não está na lista: não perde o dado
+        if (c.tagName === 'SELECT' && v && c.value !== v) {
+          c.appendChild(new Option(v, v));
+          c.value = v;
+        }
+      });
+      atualizarLinha(tr);
+    });
+  }
+
+  function salvar() {
+    var invalidos = document.querySelectorAll('#corpo .hora.invalido').length;
+    if (invalidos && !confirm(
+        'Há ' + invalidos + ' hora(s) com formato errado (em vermelho). Salvar mesmo assim?')) return;
+
+    travar(true, 'Salvando...');
+    Backend.salvarDia({ data: dataAtualBR(), registros: coletar() })
+      .then(function (res) {
+        if (res.ok) sujo = false;
+        travar(false, res.mensagem, res.ok ? 'ok' : 'erro');
+      })
+      .catch(function (e) { travar(false, 'Erro ao salvar: ' + e.message, 'erro'); });
+  }
+
+  function coletar() {
+    var registros = {};
+    document.querySelectorAll('#corpo tr').forEach(function (tr) {
+      var r = {};
+      tr.querySelectorAll('select, .hora').forEach(function (c) {
+        r[c.dataset.campo] = c.classList.contains('hora') ? normalizarHora(c.value) : c.value;
+      });
+      registros[tr.dataset.rota] = r;
+    });
+    return registros;
+  }
+
+  /* ================= Utilidades ================= */
+  function marcarSujo() {
+    sujo = true;
+    definirStatus('Alterações não salvas', 'pendente');
+  }
+
+  function travar(ocupado, msg, classe) {
+    document.getElementById('salvar').disabled = ocupado;
+    definirStatus(msg, classe || '');
+  }
+
+  function definirStatus(msg, classe) {
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = classe || '';
+  }
+
+  function dataAtualBR() {
+    var v = document.getElementById('data').value; // yyyy-mm-dd
+    if (!v) return CFG.hoje;
+    var p = v.split('-');
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+
+  function paraISO(dataBR) {
+    var p = dataBR.split('/');
+    return p[2] + '-' + p[1] + '-' + p[0];
+  }
+
+  // Exposto para os testes automatizados dirigirem a página.
+  window.coletar = coletar;
+  window.Backend = Backend;
+</script>
+</body>
+</html>

@@ -148,9 +148,20 @@ a releitura falhou; refaça o teste do ping.
   não toca nos outros setores nem nos outros dias.
 - **Time** é calculado pelo Apps Script, não digitado. Atravessa a meia-noite (23:40 → 00:10 = 0:30).
 - **Reabrir** uma data já lançada traz o que está na planilha, para corrigir.
-- **Leitura por JSONP, gravação por POST `no-cors`** (veja o quadro acima). A gravação é sempre
-  seguida de uma releitura que confirma o que entrou na planilha — é daí que vem o número no
-  status "Salvo e confirmado".
+- **Tudo por JSONP, uma ida e volta por ação.** Cada chamada ao Apps Script custa 1,5–4s de
+  overhead do Google, então o que mais pesa é a *quantidade* de chamadas, não o tamanho dos
+  dados. Por isso:
+  - **Abrir a página = 1 chamada.** O `doGet` sem ação devolve config **e** o dia do setor
+    lembrado (o front manda `?setor=` do `localStorage`).
+  - **Salvar = 1 chamada.** `?acao=salvar` grava e já responde o resultado, sem releitura.
+  - O payload vai **compacto** (`[[cam, separador, inicio, fim, conferente, 0|1], ...]`) e só com
+    os caminhões preenchidos — URL curta e menos trabalho no servidor.
+  - Se a URL passasse de ~6.000 caracteres (caso raro, grid inteiro cheio), cai automaticamente
+    no caminho antigo por POST + releitura, que não tem limite de tamanho.
+
+> Se um dia voltar a ficar lento, o próximo passo é o `salvarSetor`: hoje ele reescreve a aba
+> inteira a cada gravação para manter tudo ordenado. Com muitos meses de histórico isso cresce.
+> A solução seria atualizar só as linhas do (data + setor) em vez de reescrever tudo.
 
 ## Ajustes comuns
 

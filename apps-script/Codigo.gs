@@ -33,11 +33,15 @@
    ============================================================ */
 
 /**
- * Leituras (JSONP).
- *   ?acao=ping                                  -> teste rápido ("pong")
- *   ?acao=config                                -> caminhões, setores (com operadores)
- *   ?acao=dia&data=15/07/2026&setor=secos2      -> lançamentos de UM setor no dia
- *   (sem acao)                                  -> só a config (o front escolhe o setor)
+ * Tudo passa por aqui (JSONP), para gastar UMA ida e volta por ação —
+ * cada chamada ao Apps Script custa segundos, então evitamos chamadas extras.
+ *
+ *   ?acao=ping                                     -> teste rápido ("pong")
+ *   ?acao=config                                   -> caminhões, setores, conferentes
+ *   ?acao=dia&data=15/07/2026&setor=secos2         -> lançamentos de UM setor no dia
+ *   ?acao=salvar&data=..&setor=..&dados=[[...]]    -> grava e já responde o resultado
+ *   (sem acao) &setor=secos2                       -> config + o dia de hoje daquele setor
+ *
  * Com ?callback=nome, responde nome(json) para funcionar por <script> (sem CORS).
  */
 function doGet(e) {
@@ -50,13 +54,44 @@ function doGet(e) {
       out = { ok: true, dados: getConfig() };
     } else if (p.acao === 'dia') {
       out = { ok: true, dados: carregarSetor(normalizarData(p.data) || p.data, p.setor) };
+    } else if (p.acao === 'salvar') {
+      // Já devolve {ok, mensagem} — o front não precisa reler para confirmar.
+      out = salvarSetor({
+        data: p.data,
+        setor: p.setor,
+        registros: registrosDeCompacto(p.dados),
+      });
     } else {
-      out = { ok: true, dados: { config: getConfig() } };
+      // Abertura da página: config + o dia já preenchido, numa chamada só.
+      const cfg = getConfig();
+      const setor = acharSetor(p.setor) || CONFIG.SETORES[0];
+      out = { ok: true, dados: { config: cfg, dia: carregarSetor(cfg.hoje, setor.id) } };
     }
   } catch (err) {
     out = { ok: false, mensagem: 'Erro: ' + err };
   }
   return responder(out, p.callback);
+}
+
+/**
+ * Converte o formato compacto que o front manda na URL:
+ *   [[cam, separador, inicio, fim, conferente, 0|1], ...]
+ * para o formato interno. Só vêm os caminhões preenchidos, o que deixa a
+ * URL curta e o processamento leve.
+ */
+function registrosDeCompacto(txt) {
+  const lista = JSON.parse(txt || '[]');
+  const registros = {};
+  lista.forEach(l => {
+    registros[l[0]] = {
+      separador: l[1] || '',
+      inicio: l[2] || '',
+      fim: l[3] || '',
+      conferente: l[4] || '',
+      inconsistencia: l[5] === 1 || l[5] === true,
+    };
+  });
+  return registros;
 }
 
 /** Gravação de UM setor. O front envia o corpo como texto (POST simples, sem preflight). */

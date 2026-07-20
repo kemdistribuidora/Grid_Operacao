@@ -339,7 +339,7 @@
      Cole abaixo o link /exec do Web App do Apps Script. Enquanto
      estiver vazio, a página roda em MODO PREVIEW (nada é gravado).
      ================================================================ */
-  var API_URL = 'https://script.google.com/macros/s/AKfycbzluPH3qa6T7xZDI74Bl4njr2xCTjIxtwXV2-j4DEqLZssr5lFxR02W7NdsWUx3T6o/exec';
+  var API_URL = 'https://script.google.com/macros/s/AKfycbzgpcAyT-XmXLQLIAyS1Y9LX14CeFX3H1jlhPtdhRtF6BARM5Z7rXKm0Skxlx0lex-VMg/exec';
   // Seam de teste: em produção __API_URL__ nunca é definido.
   if (typeof window.__API_URL__ === 'string') API_URL = window.__API_URL__;
 
@@ -373,8 +373,7 @@
 
         window[cb] = function (resposta) {
           finalizar();
-          if (!resposta || !resposta.ok) reject(new Error((resposta && resposta.mensagem) || 'erro'));
-          else resolve(resposta.dados);
+          resolve(resposta || { ok: false, mensagem: 'resposta vazia' });
         };
 
         var qs = ['callback=' + cb];
@@ -387,27 +386,60 @@
       });
     }
 
+    // Para leituras: desembrulha e transforma erro do servidor em exceção.
+    function jsonpDados(params) {
+      return jsonp(params).then(function (j) {
+        if (!j.ok) throw new Error(j.mensagem || 'erro');
+        return j.dados;
+      });
+    }
+
+    // Só os caminhões preenchidos viram [cam, sep, ini, fim, conf, 0|1].
+    // Isso encurta muito a URL e o trabalho do servidor.
+    function compactar(registros) {
+      var lista = [];
+      Object.keys(registros || {}).forEach(function (cam) {
+        var r = registros[cam] || {};
+        if (!r.separador && !r.inicio && !r.fim && !r.conferente && !r.inconsistencia) return;
+        lista.push([Number(cam), r.separador || '', r.inicio || '', r.fim || '',
+                    r.conferente || '', r.inconsistencia ? 1 : 0]);
+      });
+      return lista;
+    }
+
     function contar(registros) {
       var n = 0;
       Object.keys(registros || {}).forEach(function (cam) {
         var r = registros[cam] || {};
-        if (r.operador || r.inicio || r.fim) n += 1;
+        if (r.separador || r.inicio || r.fim || r.conferente || r.inconsistencia) n += 1;
       });
       return n;
     }
 
+    // Caminho reserva: se a URL ficaria grande demais para um GET, grava por
+    // POST e relê para confirmar (duas idas, mas sem limite de tamanho).
+    function salvarPorPost(payload) {
+      return fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
+        .then(function () { return jsonpDados({ acao: 'dia', data: payload.data, setor: payload.setor }); })
+        .then(function (dados) {
+          return { ok: true, mensagem: 'Salvo: ' + contar(dados.registros) + ' lançamento(s)' };
+        })
+        .catch(function (e) {
+          return { ok: false, mensagem: 'Não deu pra confirmar o salvamento: ' + e.message };
+        });
+    }
+
     return {
-      inicio: function () { return jsonp({}); },
-      carregarSetor: function (data, setor) { return jsonp({ acao: 'dia', data: data, setor: setor }); },
+      // Uma chamada só: config + o dia do setor lembrado.
+      inicio: function (setor) { return jsonpDados(setor ? { setor: setor } : {}); },
+      carregarSetor: function (data, setor) { return jsonpDados({ acao: 'dia', data: data, setor: setor }); },
       salvarSetor: function (payload) {
-        return fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
-          .then(function () { return jsonp({ acao: 'dia', data: payload.data, setor: payload.setor }); })
-          .then(function (dados) {
-            return { ok: true, mensagem: 'Salvo e confirmado: ' + contar(dados.registros) + ' lançamento(s) na planilha' };
-          })
-          .catch(function (e) {
-            return { ok: false, mensagem: 'Não deu pra confirmar o salvamento: ' + e.message };
-          });
+        var dados = JSON.stringify(compactar(payload.registros));
+        var tamanho = url.length + encodeURIComponent(dados).length + 120;
+        if (tamanho > 6000) return salvarPorPost(payload);   // raro: grid inteiro cheio
+        // Uma ida e volta: grava e já volta com o resultado do servidor.
+        return jsonp({ acao: 'salvar', data: payload.data, setor: payload.setor, dados: dados })
+          .catch(function (e) { return { ok: false, mensagem: 'Erro ao salvar: ' + e.message }; });
       },
     };
   }
@@ -431,7 +463,10 @@
       return { data: data, setor: setor, temDados: !!r, registros: r || {} };
     }
     return {
-      inicio: function () { return Promise.resolve({ config: config }); },
+      inicio: function (setor) {
+        var id = (config.setores.filter(function (s) { return s.id === setor; })[0] || config.setores[0]).id;
+        return Promise.resolve({ config: config, dia: dia(config.hoje, id) });
+      },
       carregarSetor: function (data, setor) { return Promise.resolve(dia(data, setor)); },
       salvarSetor: function (p) {
         mem[p.data + '|' + p.setor] = p.registros;
@@ -447,7 +482,8 @@
   var sujo = false;
 
   /* ================= Início ================= */
-  Backend.inicio().then(function (res) {
+  // Manda já o setor lembrado para o servidor devolver config + dia numa chamada só.
+  Backend.inicio(setorLembrado()).then(function (res) {
     CFG = res.config;
     document.getElementById('data').value = paraISO(CFG.hoje);
     montarBarraSetores();
@@ -471,16 +507,21 @@
       if (sujo) { e.preventDefault(); e.returnValue = ''; }
     });
 
-    selecionarSetor(setorInicial(), true);
+    // O dia já veio junto: abre sem gastar outra chamada.
+    selecionarSetor((res.dia && res.dia.setor) || setorInicial(), true, res.dia);
   }).catch(function (e) {
     document.getElementById('carregando').textContent =
       'Erro ao carregar: ' + e.message + '. Confira o link do Apps Script (API_URL).';
   });
 
   /* ================= Setores ================= */
+  // Lido antes de CFG existir (vai junto no pedido de abertura).
+  function setorLembrado() {
+    try { return localStorage.getItem('grid_setor') || ''; } catch (e) { return ''; }
+  }
+
   function setorInicial() {
-    var salvo = null;
-    try { salvo = localStorage.getItem('grid_setor'); } catch (e) {}
+    var salvo = setorLembrado();
     if (salvo && CFG.setores.some(function (s) { return s.id === salvo; })) return salvo;
     return CFG.setores[0].id;
   }
@@ -502,7 +543,8 @@
     });
   }
 
-  function selecionarSetor(id, forcar) {
+  /** jaCarregado: dados do dia que já vieram do servidor (evita uma chamada). */
+  function selecionarSetor(id, forcar, jaCarregado) {
     if (!forcar && id === setorAtivo) return;
     if (!forcar && !confirmarDescarte()) return;
 
@@ -518,7 +560,14 @@
     document.getElementById('cab-setor').textContent = 'Separador — ' + setor.nome;
 
     desenharGrid(setor);
-    carregar();
+
+    if (jaCarregado && jaCarregado.registros) {
+      preencher(jaCarregado.registros);
+      sujo = false;
+      definirStatus(jaCarregado.temDados ? 'Setor carregado da planilha' : 'Nada lançado ainda neste setor/dia', 'ok');
+    } else {
+      carregar();
+    }
   }
 
   function confirmarDescarte() {

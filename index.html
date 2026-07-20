@@ -191,9 +191,11 @@
     width: 84px;
     min-width: 84px;
   }
-  .col-op { width: auto; }
-  .col-hora { width: 155px; }
-  .col-time { width: 120px; }
+  .col-op { width: auto; min-width: 190px; }
+  .col-hora { width: 130px; }
+  .col-time { width: 100px; }
+  .col-conf { width: 185px; }
+  .col-inc { width: 135px; font-size: 14px; }
 
   /* ---------- Campos ---------- */
   select, .hora {
@@ -239,9 +241,29 @@
   }
   td.time.invalido { color: var(--erro); background: var(--aviso-bg); }
 
+  /* ---------- Inconsistência (caixinha grande, fácil de acertar) ---------- */
+  td.inc { padding: 0; }
+  td.inc input[type="checkbox"] {
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    accent-color: var(--vermelho);
+    margin: 0;
+  }
+  td.inc input[type="checkbox"]:focus {
+    outline: 3px solid var(--laranja);
+    outline-offset: 2px;
+  }
+
   tr.preenchida .cam { background: #d8ecdd; color: var(--ok-escuro); }
   tbody tr:nth-child(even) td { background: #fafbfd; }
   tbody tr:nth-child(even) td.time { background: #eff4f9; }
+
+  /* Linha com inconsistência fica visivelmente marcada */
+  tbody tr.com-inconsistencia td { background: #fdecea; }
+  tbody tr.com-inconsistencia .cam { background: #f9c9c4; color: var(--erro); }
+  tbody tr.com-inconsistencia td.inc { box-shadow: inset 3px 0 0 var(--vermelho); }
+
   tbody tr:hover td { background: #fff7ec; }
   tbody tr:hover .cam { background: #ffe6c2; }
 
@@ -304,10 +326,12 @@
     <thead>
       <tr>
         <th class="cam">Cam.</th>
-        <th id="cab-setor" class="col-op">Operador</th>
+        <th id="cab-setor" class="col-op">Separador</th>
         <th class="col-hora">Hora início</th>
         <th class="col-hora">Fim</th>
         <th class="col-time">Time</th>
+        <th class="col-conf">Conferente</th>
+        <th class="col-inc">Inconsistência</th>
       </tr>
     </thead>
     <tbody id="corpo"></tbody>
@@ -321,7 +345,7 @@
      Cole abaixo o link /exec do Web App do Apps Script. Enquanto
      estiver vazio, a página roda em MODO PREVIEW (nada é gravado).
      ================================================================ */
-  var API_URL = 'https://script.google.com/macros/s/AKfycbxoHorunh9tRFAx9ljoCZtowydM-V4vg7dFssJYrN2yg-_sasxf3MHXVSbNGRSc-rNheg/exec';
+  var API_URL = 'https://script.google.com/macros/s/AKfycby9QfxvuWWa1a1f0hdD2L_PhHUnLoUygJYyelqQ29_PuTVA-xHyy9HF1ixxwGfks_riSA/exec';
 
   // Seam de teste: em produção __API_URL__ nunca é definido.
   if (typeof window.__API_URL__ === 'string') API_URL = window.__API_URL__;
@@ -406,6 +430,7 @@
         { id: 'resfriados', nome: 'Resfriados', cor: '#fce8e6', operadores: ['Helio','Alaor'] },
         { id: 'congelados', nome: 'Congelados', cor: '#e0f7fa', operadores: ['Josue','Douglas','Jeferson','Vitor','Andre','Francisco'] },
       ],
+      conferentes: ['Francisco', 'João Paulo', 'Alzoni'],
       hoje: new Date().toLocaleDateString('pt-BR'),
     };
     function dia(data, setor) {
@@ -497,7 +522,7 @@
       b.classList.toggle('ativo', ativo);
       b.style.background = ativo ? setor.cor : '#fff';
     });
-    document.getElementById('cab-setor').textContent = 'Operador — ' + setor.nome;
+    document.getElementById('cab-setor').textContent = 'Separador — ' + setor.nome;
 
     desenharGrid(setor);
     carregar();
@@ -523,15 +548,8 @@
       tdCam.textContent = cam;
       tr.appendChild(tdCam);
 
-      // Operador
-      var tdOp = document.createElement('td');
-      var sel = document.createElement('select');
-      sel.dataset.campo = 'operador';
-      sel.appendChild(new Option('', ''));
-      setor.operadores.forEach(function (nome) { sel.appendChild(new Option(nome, nome)); });
-      sel.addEventListener('change', function () { marcarSujo(); atualizarLinha(tr); });
-      tdOp.appendChild(sel);
-      tr.appendChild(tdOp);
+      // Separador (quem separou) — lista do setor
+      tr.appendChild(montarSelect('separador', setor.operadores, tr));
 
       // Início e Fim
       ['inicio', 'fim'].forEach(function (qual) {
@@ -554,8 +572,34 @@
       tdTime.dataset.campo = 'time';
       tr.appendChild(tdTime);
 
+      // Conferente (quem conferiu) — lista única para todos os setores
+      tr.appendChild(montarSelect('conferente', CFG.conferentes || [], tr));
+
+      // Inconsistência — caixinha; marcada grava "Sim", vazia grava "Não"
+      var tdInc = document.createElement('td');
+      tdInc.className = 'inc';
+      var chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.dataset.campo = 'inconsistencia';
+      chk.title = 'Marque se houve inconsistência nesta carga';
+      chk.addEventListener('change', function () { marcarSujo(); atualizarLinha(tr); });
+      tdInc.appendChild(chk);
+      tr.appendChild(tdInc);
+
       corpo.appendChild(tr);
     });
+  }
+
+  /** Uma célula com menu suspenso (separador ou conferente). */
+  function montarSelect(campo, nomes, tr) {
+    var td = document.createElement('td');
+    var sel = document.createElement('select');
+    sel.dataset.campo = campo;
+    sel.appendChild(new Option('', ''));
+    (nomes || []).forEach(function (nome) { sel.appendChild(new Option(nome, nome)); });
+    sel.addEventListener('change', function () { marcarSujo(); atualizarLinha(tr); });
+    td.appendChild(sel);
+    return td;
   }
 
   /* ================= Campo de hora ================= */
@@ -590,7 +634,8 @@
   function horaValida(v) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(v); }
 
   function proximoCampo(atual) {
-    var campos = Array.prototype.slice.call(document.querySelectorAll('#corpo select, #corpo .hora'));
+    var campos = Array.prototype.slice.call(
+      document.querySelectorAll('#corpo select, #corpo .hora, #corpo input[type="checkbox"]'));
     var i = campos.indexOf(atual);
     if (i > -1 && i < campos.length - 1) campos[i + 1].focus();
   }
@@ -618,9 +663,11 @@
       td.title = '';
     }
 
-    var temDado = Array.prototype.some.call(
+    var marcado = tr.querySelector('[data-campo="inconsistencia"]').checked;
+    var temDado = marcado || Array.prototype.some.call(
       tr.querySelectorAll('select, .hora'), function (c) { return c.value !== ''; });
     tr.classList.toggle('preenchida', temDado);
+    tr.classList.toggle('com-inconsistencia', marcado);
   }
 
   function minutos(hhmm) {
@@ -644,12 +691,16 @@
     registros = registros || {};
     document.querySelectorAll('#corpo tr').forEach(function (tr) {
       var r = registros[tr.dataset.cam] || {};
-      var sel = tr.querySelector('select');
-      var vOp = r.operador || '';
-      sel.value = vOp;
-      if (vOp && sel.value !== vOp) { sel.appendChild(new Option(vOp, vOp)); sel.value = vOp; }
+      // Nome que veio da planilha mas saiu da lista não some: vira opção extra.
+      [['separador', r.separador], ['conferente', r.conferente]].forEach(function (par) {
+        var sel = tr.querySelector('[data-campo="' + par[0] + '"]');
+        var v = par[1] || '';
+        sel.value = v;
+        if (v && sel.value !== v) { sel.appendChild(new Option(v, v)); sel.value = v; }
+      });
       tr.querySelector('[data-campo="inicio"]').value = normalizarHora(r.inicio || '');
       tr.querySelector('[data-campo="fim"]').value = normalizarHora(r.fim || '');
+      tr.querySelector('[data-campo="inconsistencia"]').checked = r.inconsistencia === true;
       atualizarLinha(tr);
     });
   }
@@ -671,9 +722,11 @@
     var registros = {};
     document.querySelectorAll('#corpo tr').forEach(function (tr) {
       registros[tr.dataset.cam] = {
-        operador: tr.querySelector('select').value,
+        separador: tr.querySelector('[data-campo="separador"]').value,
         inicio: normalizarHora(tr.querySelector('[data-campo="inicio"]').value),
         fim: normalizarHora(tr.querySelector('[data-campo="fim"]').value),
+        conferente: tr.querySelector('[data-campo="conferente"]').value,
+        inconsistencia: tr.querySelector('[data-campo="inconsistencia"]').checked,
       };
     });
     return registros;

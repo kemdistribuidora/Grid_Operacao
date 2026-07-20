@@ -104,12 +104,19 @@ const CONFIG = {
     { id: 'congelados', nome: 'Congelados',  cor: '#e0f7fa', operadores: ['Josue', 'Douglas', 'Jeferson', 'Vitor', 'Andre', 'Francisco'] },
   ],
 
+  // Quem confere a carga. Lista única, vale para os 4 setores.
+  CONFERENTES: ['Francisco', 'João Paulo', 'Alzoni'],
+
   FUSO: 'America/Sao_Paulo',
 };
 
 // Colunas da aba API (base 1). Mudar a ordem aqui muda a aba inteira.
-const COL = { DATA: 1, ROTA: 2, SETOR: 3, OPERADOR: 4, INICIO: 5, FIM: 6, TIME: 7, ATUALIZADO: 8 };
-const CABECALHO = ['Data', 'Caminhao', 'Setor', 'Operador', 'Hora inicio', 'Fim', 'Time', 'Atualizado em'];
+const COL = {
+  DATA: 1, ROTA: 2, SETOR: 3, SEPARADOR: 4, INICIO: 5, FIM: 6, TIME: 7,
+  CONFERENTE: 8, INCONSIST: 9, ATUALIZADO: 10,
+};
+const CABECALHO = ['Data', 'Caminhao', 'Setor', 'Separador', 'Hora inicio', 'Fim', 'Time',
+                   'Conferente', 'Inconsistencia', 'Atualizado em'];
 const LINHA_CABECALHO = 1;
 const PRIMEIRA_LINHA_DADOS = 2;
 
@@ -123,6 +130,7 @@ function getConfig() {
     setores: CONFIG.SETORES.map(s => ({
       id: s.id, nome: s.nome, cor: s.cor, operadores: s.operadores,
     })),
+    conferentes: CONFIG.CONFERENTES,
     hoje: Utilities.formatDate(new Date(), CONFIG.FUSO, 'dd/MM/yyyy'),
   };
 }
@@ -174,9 +182,10 @@ function formatarAba(aba) {
   aba.getRange('A:A').setNumberFormat('dd/MM/yyyy');
   aba.getRange('E:F').setNumberFormat('HH:mm');
   aba.getRange('G:G').setNumberFormat('[h]:mm');   // [h] deixa somar tempo passando de 24h
-  aba.getRange('H:H').setNumberFormat('dd/MM/yyyy HH:mm');
+  aba.getRange('J:J').setNumberFormat('dd/MM/yyyy HH:mm');
 
-  [90, 55, 90, 130, 90, 90, 70, 140].forEach((larg, i) => aba.setColumnWidth(i + 1, larg));
+  [90, 80, 100, 140, 90, 90, 70, 130, 120, 140]
+    .forEach((larg, i) => aba.setColumnWidth(i + 1, larg));
 }
 
 /* ============================================================
@@ -204,15 +213,19 @@ function carregarSetor(dataBR, setorIdOuNome) {
     String(l[COL.SETOR - 1]).trim() === setor.nome);
 
   const registros = {};
-  CONFIG.ROTAS.forEach(cam => { registros[cam] = { operador: '', inicio: '', fim: '' }; });
+  CONFIG.ROTAS.forEach(cam => {
+    registros[cam] = { separador: '', inicio: '', fim: '', conferente: '', inconsistencia: false };
+  });
 
   linhas.forEach(l => {
     const cam = String(l[COL.ROTA - 1]).trim();
     if (!registros[cam]) return;
     registros[cam] = {
-      operador: l[COL.OPERADOR - 1] || '',
+      separador: l[COL.SEPARADOR - 1] || '',
       inicio: normalizarHora(l[COL.INICIO - 1]),
       fim: normalizarHora(l[COL.FIM - 1]),
+      conferente: l[COL.CONFERENTE - 1] || '',
+      inconsistencia: ehSim(l[COL.INCONSIST - 1]),
     };
   });
 
@@ -252,18 +265,23 @@ function salvarSetor(payload) {
     const novas = [];
     CONFIG.ROTAS.forEach(cam => {
       const r = (payload.registros || {})[cam] || {};
-      const operador = String(r.operador || '').trim();
+      const separador = String(r.separador || '').trim();
       const inicio = normalizarHora(r.inicio);
       const fim = normalizarHora(r.fim);
-      if (!operador && !inicio && !fim) return; // caminhão parado não vira linha
+      const conferente = String(r.conferente || '').trim();
+      const inconsistencia = r.inconsistencia === true;
+      // Caminhão totalmente em branco não vira linha (mas só a flag marcada já vira)
+      if (!separador && !inicio && !fim && !conferente && !inconsistencia) return;
       const linha = [];
       linha[COL.DATA - 1] = dataBR;
       linha[COL.ROTA - 1] = cam;
       linha[COL.SETOR - 1] = setor.nome;
-      linha[COL.OPERADOR - 1] = operador;
+      linha[COL.SEPARADOR - 1] = separador;
       linha[COL.INICIO - 1] = inicio;
       linha[COL.FIM - 1] = fim;
       linha[COL.TIME - 1] = calcularDuracao(inicio, fim);
+      linha[COL.CONFERENTE - 1] = conferente;
+      linha[COL.INCONSIST - 1] = inconsistencia ? 'Sim' : 'Não';
       linha[COL.ATUALIZADO - 1] = agora;
       novas.push(linha);
     });
@@ -295,20 +313,29 @@ function salvarSetor(payload) {
 
 /** Reescreve uma linha lida da planilha com os tipos canônicos das colunas. */
 function canonizar(l) {
-  const rotaTxt = String(l[COL.ROTA - 1]).trim();
-  const rotaNum = Number(rotaTxt);
+  const camTxt = String(l[COL.ROTA - 1]).trim();
+  const camNum = Number(camTxt);
   const inicio = normalizarHora(l[COL.INICIO - 1]);
   const fim = normalizarHora(l[COL.FIM - 1]);
   const linha = [];
   linha[COL.DATA - 1] = normalizarData(l[COL.DATA - 1]);
-  linha[COL.ROTA - 1] = isNaN(rotaNum) ? rotaTxt : rotaNum;
+  linha[COL.ROTA - 1] = isNaN(camNum) ? camTxt : camNum;
   linha[COL.SETOR - 1] = String(l[COL.SETOR - 1]).trim();
-  linha[COL.OPERADOR - 1] = String(l[COL.OPERADOR - 1] || '').trim();
+  linha[COL.SEPARADOR - 1] = String(l[COL.SEPARADOR - 1] || '').trim();
   linha[COL.INICIO - 1] = inicio;
   linha[COL.FIM - 1] = fim;
   linha[COL.TIME - 1] = calcularDuracao(inicio, fim);
+  linha[COL.CONFERENTE - 1] = String(l[COL.CONFERENTE - 1] || '').trim();
+  linha[COL.INCONSIST - 1] = ehSim(l[COL.INCONSIST - 1]) ? 'Sim' : 'Não';
   linha[COL.ATUALIZADO - 1] = l[COL.ATUALIZADO - 1] || '';
   return linha;
+}
+
+/** "Sim" / "sim" / true / "VERDADEIRO" -> true. Qualquer outra coisa -> false. */
+function ehSim(valor) {
+  if (valor === true) return true;
+  const t = String(valor || '').trim().toLowerCase();
+  return t === 'sim' || t === 'true' || t === 'verdadeiro';
 }
 
 /** Ordena: data crescente; caminhão crescente (menor->maior); setor na ordem do CONFIG. */

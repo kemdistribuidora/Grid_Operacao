@@ -192,9 +192,8 @@
     min-width: 84px;
   }
   .col-op { width: auto; min-width: 190px; }
-  .col-hora { width: 130px; }
-  .col-time { width: 100px; }
-  .col-conf { width: 185px; }
+  .col-hora { width: 150px; }
+  .col-conf { width: 200px; }
   .col-inc { width: 135px; font-size: 14px; }
 
   /* ---------- Campos ---------- */
@@ -233,13 +232,11 @@
     font-weight: bold;
   }
 
-  td.time {
-    font-weight: bold;
-    font-size: 19px;
-    color: var(--ok);
-    background: #f4f7fb;
+  /* Início/fim provavelmente trocados: aviso sem mostrar a duração */
+  .hora.suspeito {
+    background: #fff4e0;
+    box-shadow: inset 0 -3px 0 var(--laranja);
   }
-  td.time.invalido { color: var(--erro); background: var(--aviso-bg); }
 
   /* ---------- Inconsistência (caixinha grande, fácil de acertar) ---------- */
   td.inc { padding: 0; }
@@ -257,7 +254,6 @@
 
   tr.preenchida .cam { background: #d8ecdd; color: var(--ok-escuro); }
   tbody tr:nth-child(even) td { background: #fafbfd; }
-  tbody tr:nth-child(even) td.time { background: #eff4f9; }
 
   /* Linha com inconsistência fica visivelmente marcada */
   tbody tr.com-inconsistencia td { background: #fdecea; }
@@ -294,8 +290,7 @@
   @media (max-width: 700px) {
     .titulo { order: 3; width: 100%; margin: 4px 0; }
     #status { min-width: 0; width: 100%; text-align: left; }
-    .col-hora { width: 110px; }
-    .col-time { width: 90px; }
+    .col-hora { width: 120px; }
   }
 </style>
 </head>
@@ -329,7 +324,6 @@
         <th id="cab-setor" class="col-op">Separador</th>
         <th class="col-hora">Hora início</th>
         <th class="col-hora">Fim</th>
-        <th class="col-time">Time</th>
         <th class="col-conf">Conferente</th>
         <th class="col-inc">Inconsistência</th>
       </tr>
@@ -566,11 +560,8 @@
         tr.appendChild(td);
       });
 
-      // Time
-      var tdTime = document.createElement('td');
-      tdTime.className = 'time';
-      tdTime.dataset.campo = 'time';
-      tr.appendChild(tdTime);
+      // A coluna Time NÃO aparece aqui de propósito: é informação interna.
+      // O tempo é calculado no Apps Script na hora de gravar na planilha.
 
       // Conferente (quem conferiu) — lista única para todos os setores
       tr.appendChild(montarSelect('conferente', CFG.conferentes || [], tr));
@@ -640,28 +631,31 @@
     if (i > -1 && i < campos.length - 1) campos[i + 1].focus();
   }
 
-  /* ================= Cálculo ao vivo ================= */
+  /* ================= Conferência ao vivo ================= */
+  // O tempo (Time) não é mostrado — é informação interna, calculada no
+  // Apps Script ao gravar. Aqui só validamos o que o operador digitou.
   function atualizarLinha(tr) {
     var ini = tr.querySelector('[data-campo="inicio"]');
     var fim = tr.querySelector('[data-campo="fim"]');
-    var td = tr.querySelector('[data-campo="time"]');
 
+    // Formato errado (ex.: 25:99) fica vermelho
     [ini, fim].forEach(function (c) {
       var errado = c.value !== '' && c.value.length >= 4 && !horaValida(c.value);
       c.classList.toggle('invalido', errado);
     });
 
+    // Intervalo acima de 12h quase sempre é hora trocada. Avisamos sem
+    // revelar a duração — só pedindo para conferir.
+    var suspeito = false;
     if (horaValida(ini.value) && horaValida(fim.value)) {
       var diff = minutos(fim.value) - minutos(ini.value);
       if (diff < 0) diff += 24 * 60;
-      td.textContent = Math.floor(diff / 60) + ':' + String(diff % 60).padStart(2, '0');
-      td.classList.toggle('invalido', diff > 12 * 60);
-      td.title = diff > 12 * 60 ? 'Tempo muito longo — confira as horas' : '';
-    } else {
-      td.textContent = '';
-      td.classList.remove('invalido');
-      td.title = '';
+      suspeito = diff > 12 * 60;
     }
+    [ini, fim].forEach(function (c) {
+      c.classList.toggle('suspeito', suspeito);
+      c.title = suspeito ? 'Confira as horas: o início e o fim parecem trocados.' : '';
+    });
 
     var marcado = tr.querySelector('[data-campo="inconsistencia"]').checked;
     var temDado = marcado || Array.prototype.some.call(

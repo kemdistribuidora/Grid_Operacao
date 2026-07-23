@@ -144,6 +144,12 @@ const CONFIG = {
   // Quem confere a carga. Lista única, vale para os 4 setores.
   CONFERENTES: ['Francisco', 'João Paulo', 'Alzoni'],
 
+  // Valores gravados na coluna Inconsistência. TÊM que ser idênticos aos da
+  // validação de dados daquela coluna na planilha (a lista suspensa), senão
+  // o Google recusa a gravação. Hoje a validação aceita SIM / NÃO (maiúsculos).
+  INCONSIST_SIM: 'SIM',
+  INCONSIST_NAO: 'NÃO',
+
   FUSO: 'America/Sao_Paulo',
 };
 
@@ -330,7 +336,7 @@ function salvarSetor(payload) {
       linha[COL.TIME - 1] = calcularDuracao(inicio, fim); // Time = Fim − Hora início (separação)
       linha[COL.OP_INICIO - 1] = opInicio;
       linha[COL.OP_FIM - 1] = opFim;
-      linha[COL.INCONSIST - 1] = inconsistencia ? 'Sim' : 'Não';
+      linha[COL.INCONSIST - 1] = inconsistencia ? CONFIG.INCONSIST_SIM : CONFIG.INCONSIST_NAO;
       linha[COL.ATUALIZADO - 1] = agora;
       novas.push(linha);
     });
@@ -377,7 +383,7 @@ function canonizar(l) {
   linha[COL.TIME - 1] = calcularDuracao(inicio, fim);
   linha[COL.OP_INICIO - 1] = normalizarHora(l[COL.OP_INICIO - 1]);
   linha[COL.OP_FIM - 1] = normalizarHora(l[COL.OP_FIM - 1]);
-  linha[COL.INCONSIST - 1] = ehSim(l[COL.INCONSIST - 1]) ? 'Sim' : 'Não';
+  linha[COL.INCONSIST - 1] = ehSim(l[COL.INCONSIST - 1]) ? CONFIG.INCONSIST_SIM : CONFIG.INCONSIST_NAO;
   linha[COL.ATUALIZADO - 1] = l[COL.ATUALIZADO - 1] || '';
   return linha;
 }

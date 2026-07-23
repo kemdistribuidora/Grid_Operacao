@@ -163,8 +163,10 @@ const COL = {
 const CABECALHO = ['Data de carregamento', 'Frota', 'Departamento', 'Separador', 'Conferente',
                    'Hora inicio', 'Fim', 'Time', 'Início operação', 'Término operação',
                    'Inconsistência', 'Atualizado em'];
-const LINHA_CABECALHO = 1;
-const PRIMEIRA_LINHA_DADOS = 2;
+// Na planilha CARREGAMENTO, as linhas 1–3 são cabeçalho/título e os dados
+// começam na linha 4. A linha 3 é a dos títulos das colunas.
+const LINHA_CABECALHO = 3;
+const PRIMEIRA_LINHA_DADOS = 4;
 
 /* ============================================================
    CONFIG PARA O FRONT
@@ -195,7 +197,7 @@ function acharSetor(idOuNome) {
 function prepararAba() {
   const aba = pegarAba();
   Logger.log('Aba "%s" pronta. %s lançamento(s) gravado(s).',
-    CONFIG.ABA, Math.max(0, aba.getLastRow() - 1));
+    CONFIG.ABA, Math.max(0, aba.getLastRow() - (PRIMEIRA_LINHA_DADOS - 1)));
   return aba.getName();
 }
 
@@ -224,7 +226,7 @@ function formatarAba(aba) {
      .setFontWeight('bold')
      .setBackground('#d9d9d9');
 
-  aba.setFrozenRows(1);
+  aba.setFrozenRows(LINHA_CABECALHO);
   aba.getRange('A:A').setNumberFormat('dd/MM/yyyy');
   aba.getRange('F:G').setNumberFormat('HH:mm');    // Hora inicio / Fim (separação)
   aba.getRange('H:H').setNumberFormat('[h]:mm');   // Time — [h] deixa somar passando de 24h
@@ -242,8 +244,9 @@ function formatarAba(aba) {
 /** Lê todos os lançamentos como matriz (sem o cabeçalho). */
 function lerTudo(aba) {
   const ultima = aba.getLastRow();
-  if (ultima < PRIMEIRA_LINHA_DADOS) return [];
-  return aba.getRange(PRIMEIRA_LINHA_DADOS, 1, ultima - 1, CABECALHO.length).getDisplayValues();
+  const nLinhas = ultima - PRIMEIRA_LINHA_DADOS + 1;
+  if (nLinhas < 1) return [];
+  return aba.getRange(PRIMEIRA_LINHA_DADOS, 1, nLinhas, CABECALHO.length).getDisplayValues();
 }
 
 /**
@@ -347,7 +350,7 @@ function salvarSetor(payload) {
     if (tudo.length) {
       aba.getRange(PRIMEIRA_LINHA_DADOS, 1, tudo.length, CABECALHO.length).setValues(tudo);
     }
-    const linhasAntes = aba.getLastRow() - 1;
+    const linhasAntes = aba.getLastRow() - (PRIMEIRA_LINHA_DADOS - 1);
     const sobra = linhasAntes - tudo.length;
     if (sobra > 0) {
       aba.getRange(PRIMEIRA_LINHA_DADOS + tudo.length, 1, sobra, CABECALHO.length).clearContent();

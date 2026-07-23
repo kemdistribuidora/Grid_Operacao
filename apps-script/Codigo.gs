@@ -122,9 +122,9 @@ function responder(obj, callback) {
 const CONFIG = {
   // ID da planilha (o trecho entre /d/ e /edit no link). Abrir por ID faz o
   // script funcionar mesmo se for um projeto standalone, não preso à planilha.
-  PLANILHA_ID: '1V5pLk9oMbfePZMSd0QNdPq2V1KAgyZ7QkoASqVBXId4',
+  PLANILHA_ID: '12YepnQuYfgKxaOgmPQSLx8qV6nCFRhsKyvtCts9VJiM',
 
-  ABA: 'EQUIPE SECOS API',
+  ABA: 'CARREGAMENTO',
 
   // Números dos caminhões (do menor ao maior).
   ROTAS: [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38],

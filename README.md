@@ -49,14 +49,17 @@ A `EQUIPE SECOS` original virou um histórico de várias planilhas coladas lado 
 6 colunas, dias com 3, com e sem hora). Escrever dentro daquilo seria frágil. A `EQUIPE SECOS
 API` é uma tabela de verdade:
 
-| Data | Caminhao | Setor | Operador | Hora inicio | Fim | Time | Atualizado em |
-|------|------|-------|----------|-------------|-----|------|---------------|
-| 15/07/2026 | 35 | Secos 2 | Julio | 18:30 | 18:50 | 0:20 | 15/07/2026 11:40 |
-| 15/07/2026 | 35 | Resfriados | Helio | 18:21 | 18:28 | 0:07 | 15/07/2026 11:40 |
-| 15/07/2026 | 34 | Secos 2 | Alzoni | 20:27 | 20:32 | 0:05 | 15/07/2026 11:40 |
+Colunas, na ordem da planilha:
 
-Rotas sem movimento no dia (como 33 e 26) **não geram linha**. É o formato que a Tabela
-Dinâmica soma sem esforço.
+`Data de carregamento · Frota · Departamento · Separador · Conferente · Hora inicio · Fim ·
+Time · Início operação · Término operação · Inconsistência · Atualizado em`
+
+- **Frota** = número do caminhão. **Departamento** = setor (Secos 1/2, Resfriados, Congelados).
+- Dois pares de horário, ambos digitados: **Hora início/Fim** (separação) e **Início/Término
+  operação** (operação). O **Time** é calculado pelo script = Fim − Hora início (a separação).
+- **Inconsistência** grava `Sim`/`Não`. **Atualizado em** é interno (quando a linha foi gravada).
+- Caminhões sem movimento no dia **não geram linha**. É o formato que a Tabela Dinâmica soma
+  sem esforço.
 
 ## Arquivos
 

@@ -75,7 +75,7 @@ function doGet(e) {
 
 /**
  * Converte o formato compacto que o front manda na URL:
- *   [[cam, separador, inicio, fim, conferente, 0|1], ...]
+ *   [[frota, separador, conferente, inicio, fim, opInicio, opFim, 0|1], ...]
  * para o formato interno. Só vêm os caminhões preenchidos, o que deixa a
  * URL curta e o processamento leve.
  */
@@ -85,10 +85,12 @@ function registrosDeCompacto(txt) {
   lista.forEach(l => {
     registros[l[0]] = {
       separador: l[1] || '',
-      inicio: l[2] || '',
-      fim: l[3] || '',
-      conferente: l[4] || '',
-      inconsistencia: l[5] === 1 || l[5] === true,
+      conferente: l[2] || '',
+      inicio: l[3] || '',
+      fim: l[4] || '',
+      op_inicio: l[5] || '',
+      op_fim: l[6] || '',
+      inconsistencia: l[7] === 1 || l[7] === true,
     };
   });
   return registros;
@@ -146,12 +148,15 @@ const CONFIG = {
 };
 
 // Colunas da aba API (base 1). Mudar a ordem aqui muda a aba inteira.
+// (ROTA = Frota/caminhão, SETOR = Departamento — nomes internos mantidos.)
 const COL = {
-  DATA: 1, ROTA: 2, SETOR: 3, SEPARADOR: 4, INICIO: 5, FIM: 6, TIME: 7,
-  CONFERENTE: 8, INCONSIST: 9, ATUALIZADO: 10,
+  DATA: 1, ROTA: 2, SETOR: 3, SEPARADOR: 4, CONFERENTE: 5,
+  INICIO: 6, FIM: 7, TIME: 8, OP_INICIO: 9, OP_FIM: 10,
+  INCONSIST: 11, ATUALIZADO: 12,
 };
-const CABECALHO = ['Data', 'Caminhao', 'Setor', 'Separador', 'Hora inicio', 'Fim', 'Time',
-                   'Conferente', 'Inconsistencia', 'Atualizado em'];
+const CABECALHO = ['Data de carregamento', 'Frota', 'Departamento', 'Separador', 'Conferente',
+                   'Hora inicio', 'Fim', 'Time', 'Início operação', 'Término operação',
+                   'Inconsistência', 'Atualizado em'];
 const LINHA_CABECALHO = 1;
 const PRIMEIRA_LINHA_DADOS = 2;
 
@@ -215,11 +220,12 @@ function formatarAba(aba) {
 
   aba.setFrozenRows(1);
   aba.getRange('A:A').setNumberFormat('dd/MM/yyyy');
-  aba.getRange('E:F').setNumberFormat('HH:mm');
-  aba.getRange('G:G').setNumberFormat('[h]:mm');   // [h] deixa somar tempo passando de 24h
-  aba.getRange('J:J').setNumberFormat('dd/MM/yyyy HH:mm');
+  aba.getRange('F:G').setNumberFormat('HH:mm');    // Hora inicio / Fim (separação)
+  aba.getRange('H:H').setNumberFormat('[h]:mm');   // Time — [h] deixa somar passando de 24h
+  aba.getRange('I:J').setNumberFormat('HH:mm');    // Início / Término operação
+  aba.getRange('L:L').setNumberFormat('dd/MM/yyyy HH:mm');
 
-  [90, 80, 100, 140, 90, 90, 70, 130, 120, 140]
+  [130, 70, 110, 140, 130, 90, 90, 70, 110, 110, 120, 140]
     .forEach((larg, i) => aba.setColumnWidth(i + 1, larg));
 }
 
@@ -248,23 +254,27 @@ function carregarSetor(dataBR, setorIdOuNome) {
     String(l[COL.SETOR - 1]).trim() === setor.nome);
 
   const registros = {};
-  CONFIG.ROTAS.forEach(cam => {
-    registros[cam] = { separador: '', inicio: '', fim: '', conferente: '', inconsistencia: false };
-  });
+  CONFIG.ROTAS.forEach(cam => { registros[cam] = registroVazio(); });
 
   linhas.forEach(l => {
     const cam = String(l[COL.ROTA - 1]).trim();
     if (!registros[cam]) return;
     registros[cam] = {
       separador: l[COL.SEPARADOR - 1] || '',
+      conferente: l[COL.CONFERENTE - 1] || '',
       inicio: normalizarHora(l[COL.INICIO - 1]),
       fim: normalizarHora(l[COL.FIM - 1]),
-      conferente: l[COL.CONFERENTE - 1] || '',
+      op_inicio: normalizarHora(l[COL.OP_INICIO - 1]),
+      op_fim: normalizarHora(l[COL.OP_FIM - 1]),
       inconsistencia: ehSim(l[COL.INCONSIST - 1]),
     };
   });
 
   return { data: dataBR, setor: setor.id, temDados: linhas.length > 0, registros: registros };
+}
+
+function registroVazio() {
+  return { separador: '', conferente: '', inicio: '', fim: '', op_inicio: '', op_fim: '', inconsistencia: false };
 }
 
 /**
@@ -301,21 +311,25 @@ function salvarSetor(payload) {
     CONFIG.ROTAS.forEach(cam => {
       const r = (payload.registros || {})[cam] || {};
       const separador = String(r.separador || '').trim();
+      const conferente = String(r.conferente || '').trim();
       const inicio = normalizarHora(r.inicio);
       const fim = normalizarHora(r.fim);
-      const conferente = String(r.conferente || '').trim();
+      const opInicio = normalizarHora(r.op_inicio);
+      const opFim = normalizarHora(r.op_fim);
       const inconsistencia = r.inconsistencia === true;
       // Caminhão totalmente em branco não vira linha (mas só a flag marcada já vira)
-      if (!separador && !inicio && !fim && !conferente && !inconsistencia) return;
+      if (!separador && !conferente && !inicio && !fim && !opInicio && !opFim && !inconsistencia) return;
       const linha = [];
       linha[COL.DATA - 1] = dataBR;
       linha[COL.ROTA - 1] = cam;
       linha[COL.SETOR - 1] = setor.nome;
       linha[COL.SEPARADOR - 1] = separador;
+      linha[COL.CONFERENTE - 1] = conferente;
       linha[COL.INICIO - 1] = inicio;
       linha[COL.FIM - 1] = fim;
-      linha[COL.TIME - 1] = calcularDuracao(inicio, fim);
-      linha[COL.CONFERENTE - 1] = conferente;
+      linha[COL.TIME - 1] = calcularDuracao(inicio, fim); // Time = Fim − Hora início (separação)
+      linha[COL.OP_INICIO - 1] = opInicio;
+      linha[COL.OP_FIM - 1] = opFim;
       linha[COL.INCONSIST - 1] = inconsistencia ? 'Sim' : 'Não';
       linha[COL.ATUALIZADO - 1] = agora;
       novas.push(linha);
@@ -357,10 +371,12 @@ function canonizar(l) {
   linha[COL.ROTA - 1] = isNaN(camNum) ? camTxt : camNum;
   linha[COL.SETOR - 1] = String(l[COL.SETOR - 1]).trim();
   linha[COL.SEPARADOR - 1] = String(l[COL.SEPARADOR - 1] || '').trim();
+  linha[COL.CONFERENTE - 1] = String(l[COL.CONFERENTE - 1] || '').trim();
   linha[COL.INICIO - 1] = inicio;
   linha[COL.FIM - 1] = fim;
   linha[COL.TIME - 1] = calcularDuracao(inicio, fim);
-  linha[COL.CONFERENTE - 1] = String(l[COL.CONFERENTE - 1] || '').trim();
+  linha[COL.OP_INICIO - 1] = normalizarHora(l[COL.OP_INICIO - 1]);
+  linha[COL.OP_FIM - 1] = normalizarHora(l[COL.OP_FIM - 1]);
   linha[COL.INCONSIST - 1] = ehSim(l[COL.INCONSIST - 1]) ? 'Sim' : 'Não';
   linha[COL.ATUALIZADO - 1] = l[COL.ATUALIZADO - 1] || '';
   return linha;

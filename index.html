@@ -33,7 +33,7 @@
 
   body {
     margin: 0 auto;
-    max-width: 1120px;
+    max-width: 1240px;
     padding: 16px;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 16px;
@@ -191,10 +191,11 @@
     width: 84px;
     min-width: 84px;
   }
-  .col-op { width: auto; min-width: 190px; }
-  .col-hora { width: 150px; }
-  .col-conf { width: 200px; }
-  .col-inc { width: 135px; font-size: 14px; }
+  .col-op { width: auto; min-width: 150px; }
+  .col-conf { width: 160px; }
+  .col-hora { width: 108px; }
+  .col-inc { width: 120px; font-size: 13px; }
+  thead th.col-hora { font-size: 14px; line-height: 1.2; }
 
   /* ---------- Campos ---------- */
   select, .hora {
@@ -290,7 +291,7 @@
   @media (max-width: 700px) {
     .titulo { order: 3; width: 100%; margin: 4px 0; }
     #status { min-width: 0; width: 100%; text-align: left; }
-    .col-hora { width: 120px; }
+    .col-hora { width: 96px; }
   }
 </style>
 </head>
@@ -320,11 +321,13 @@
   <table>
     <thead>
       <tr>
-        <th class="cam">Cam.</th>
+        <th class="cam">Frota</th>
         <th id="cab-setor" class="col-op">Separador</th>
+        <th class="col-conf">Conferente</th>
         <th class="col-hora">Hora início</th>
         <th class="col-hora">Fim</th>
-        <th class="col-conf">Conferente</th>
+        <th class="col-hora">Início operação</th>
+        <th class="col-hora">Término operação</th>
         <th class="col-inc">Inconsistência</th>
       </tr>
     </thead>
@@ -339,7 +342,7 @@
      Cole abaixo o link /exec do Web App do Apps Script. Enquanto
      estiver vazio, a página roda em MODO PREVIEW (nada é gravado).
      ================================================================ */
-  var API_URL = 'https://script.google.com/macros/s/AKfycbwBEotK5T-S2ET6rfdDwTfNCRU_wdTF51gMx8Z3Wr5kIfOpXHFAvAI2__Z-YwUwhDpb6A/exec';
+  var API_URL = 'https://script.google.com/macros/s/AKfycbynKFD8NCCkMT0J5xqq6Jqn6I5yMsIwe7WiBltEysZwA9Ap-FEWWVfECbCJx_js-gx60A/exec';
   // Seam de teste: em produção __API_URL__ nunca é definido.
   if (typeof window.__API_URL__ === 'string') API_URL = window.__API_URL__;
 
@@ -394,15 +397,21 @@
       });
     }
 
-    // Só os caminhões preenchidos viram [cam, sep, ini, fim, conf, 0|1].
+    function temAlgo(r) {
+      return !!(r.separador || r.conferente || r.inicio || r.fim || r.op_inicio || r.op_fim || r.inconsistencia);
+    }
+
+    // Só os caminhões preenchidos viram uma linha compacta:
+    //   [frota, separador, conferente, inicio, fim, opInicio, opFim, 0|1]
     // Isso encurta muito a URL e o trabalho do servidor.
     function compactar(registros) {
       var lista = [];
       Object.keys(registros || {}).forEach(function (cam) {
         var r = registros[cam] || {};
-        if (!r.separador && !r.inicio && !r.fim && !r.conferente && !r.inconsistencia) return;
-        lista.push([Number(cam), r.separador || '', r.inicio || '', r.fim || '',
-                    r.conferente || '', r.inconsistencia ? 1 : 0]);
+        if (!temAlgo(r)) return;
+        lista.push([Number(cam), r.separador || '', r.conferente || '',
+                    r.inicio || '', r.fim || '', r.op_inicio || '', r.op_fim || '',
+                    r.inconsistencia ? 1 : 0]);
       });
       return lista;
     }
@@ -410,8 +419,7 @@
     function contar(registros) {
       var n = 0;
       Object.keys(registros || {}).forEach(function (cam) {
-        var r = registros[cam] || {};
-        if (r.separador || r.inicio || r.fim || r.conferente || r.inconsistencia) n += 1;
+        if (temAlgo(registros[cam] || {})) n += 1;
       });
       return n;
     }
@@ -593,8 +601,12 @@
       // Separador (quem separou) — lista do setor
       tr.appendChild(montarSelect('separador', setor.operadores, tr));
 
-      // Início e Fim
-      ['inicio', 'fim'].forEach(function (qual) {
+      // Conferente (quem conferiu) — lista única para todos os setores
+      tr.appendChild(montarSelect('conferente', CFG.conferentes || [], tr));
+
+      // Dois pares de hora: separação (inicio/fim) e operação (op_inicio/op_fim).
+      // A coluna Time NÃO aparece: é interna, calculada no Apps Script (Fim − Início).
+      ['inicio', 'fim', 'op_inicio', 'op_fim'].forEach(function (qual) {
         var td = document.createElement('td');
         var inp = document.createElement('input');
         inp.type = 'text';
@@ -607,12 +619,6 @@
         td.appendChild(inp);
         tr.appendChild(td);
       });
-
-      // A coluna Time NÃO aparece aqui de propósito: é informação interna.
-      // O tempo é calculado no Apps Script na hora de gravar na planilha.
-
-      // Conferente (quem conferiu) — lista única para todos os setores
-      tr.appendChild(montarSelect('conferente', CFG.conferentes || [], tr));
 
       // Inconsistência — caixinha; marcada grava "Sim", vazia grava "Não"
       var tdInc = document.createElement('td');
@@ -683,26 +689,29 @@
   // O tempo (Time) não é mostrado — é informação interna, calculada no
   // Apps Script ao gravar. Aqui só validamos o que o operador digitou.
   function atualizarLinha(tr) {
-    var ini = tr.querySelector('[data-campo="inicio"]');
-    var fim = tr.querySelector('[data-campo="fim"]');
+    // Valida os dois pares: separação (inicio/fim) e operação (op_inicio/op_fim).
+    [['inicio', 'fim'], ['op_inicio', 'op_fim']].forEach(function (par) {
+      var ini = tr.querySelector('[data-campo="' + par[0] + '"]');
+      var fim = tr.querySelector('[data-campo="' + par[1] + '"]');
 
-    // Formato errado (ex.: 25:99) fica vermelho
-    [ini, fim].forEach(function (c) {
-      var errado = c.value !== '' && c.value.length >= 4 && !horaValida(c.value);
-      c.classList.toggle('invalido', errado);
-    });
+      // Formato errado (ex.: 25:99) fica vermelho
+      [ini, fim].forEach(function (c) {
+        var errado = c.value !== '' && c.value.length >= 4 && !horaValida(c.value);
+        c.classList.toggle('invalido', errado);
+      });
 
-    // Intervalo acima de 12h quase sempre é hora trocada. Avisamos sem
-    // revelar a duração — só pedindo para conferir.
-    var suspeito = false;
-    if (horaValida(ini.value) && horaValida(fim.value)) {
-      var diff = minutos(fim.value) - minutos(ini.value);
-      if (diff < 0) diff += 24 * 60;
-      suspeito = diff > 12 * 60;
-    }
-    [ini, fim].forEach(function (c) {
-      c.classList.toggle('suspeito', suspeito);
-      c.title = suspeito ? 'Confira as horas: o início e o fim parecem trocados.' : '';
+      // Intervalo acima de 12h quase sempre é hora trocada. Avisamos sem
+      // revelar a duração — só pedindo para conferir.
+      var suspeito = false;
+      if (horaValida(ini.value) && horaValida(fim.value)) {
+        var diff = minutos(fim.value) - minutos(ini.value);
+        if (diff < 0) diff += 24 * 60;
+        suspeito = diff > 12 * 60;
+      }
+      [ini, fim].forEach(function (c) {
+        c.classList.toggle('suspeito', suspeito);
+        c.title = suspeito ? 'Confira as horas: o início e o fim parecem trocados.' : '';
+      });
     });
 
     var marcado = tr.querySelector('[data-campo="inconsistencia"]').checked;
@@ -740,8 +749,9 @@
         sel.value = v;
         if (v && sel.value !== v) { sel.appendChild(new Option(v, v)); sel.value = v; }
       });
-      tr.querySelector('[data-campo="inicio"]').value = normalizarHora(r.inicio || '');
-      tr.querySelector('[data-campo="fim"]').value = normalizarHora(r.fim || '');
+      ['inicio', 'fim', 'op_inicio', 'op_fim'].forEach(function (campo) {
+        tr.querySelector('[data-campo="' + campo + '"]').value = normalizarHora(r[campo] || '');
+      });
       tr.querySelector('[data-campo="inconsistencia"]').checked = r.inconsistencia === true;
       atualizarLinha(tr);
     });
@@ -765,9 +775,11 @@
     document.querySelectorAll('#corpo tr').forEach(function (tr) {
       registros[tr.dataset.cam] = {
         separador: tr.querySelector('[data-campo="separador"]').value,
+        conferente: tr.querySelector('[data-campo="conferente"]').value,
         inicio: normalizarHora(tr.querySelector('[data-campo="inicio"]').value),
         fim: normalizarHora(tr.querySelector('[data-campo="fim"]').value),
-        conferente: tr.querySelector('[data-campo="conferente"]').value,
+        op_inicio: normalizarHora(tr.querySelector('[data-campo="op_inicio"]').value),
+        op_fim: normalizarHora(tr.querySelector('[data-campo="op_fim"]').value),
         inconsistencia: tr.querySelector('[data-campo="inconsistencia"]').checked,
       };
     });

@@ -153,7 +153,8 @@
     background: #fff;
     border: 1px solid var(--borda);
     border-radius: 12px;
-    overflow: auto;
+    overflow-x: hidden;   /* nunca arrasta a grade para o lado */
+    overflow-y: auto;     /* apenas rolagem vertical */
     max-height: calc(100vh - 200px);
     box-shadow: 0 2px 8px rgba(18, 58, 107, .08);
   }
@@ -161,6 +162,7 @@
   table {
     border-collapse: collapse;
     width: 100%;
+    table-layout: fixed;   /* colunas proporcionais: a tabela nunca ultrapassa a largura visível */
     background: #fff;
   }
 
@@ -192,14 +194,14 @@
     color: var(--azul);
     font-weight: bold;
     font-size: 21px;
-    width: 84px;
-    min-width: 84px;
+    width: 6%;
   }
-  .col-op { width: 170px; }
-  .col-conf { width: 170px; }
-  .col-hora { width: 150px; }
-  .col-inc { width: 160px; }
-  .col-motivo { width: 240px; }
+  /* Larguras proporcionais (somam 100%) — nunca geram rolagem lateral */
+  .col-op { width: 12%; }
+  .col-conf { width: 12%; }
+  .col-hora { width: 10.5%; }
+  .col-inc { width: 11%; }
+  .col-motivo { width: 17%; }
 
   /* ---------- Campos ---------- */
   select, .hora {
@@ -258,7 +260,6 @@
   }
 
   /* ---------- Motivo da inconsistência (texto até 200 caracteres) ---------- */
-  td.motivo { min-width: 220px; }
   input.txt-motivo {
     width: 100%;
     box-sizing: border-box;

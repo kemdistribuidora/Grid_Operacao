@@ -526,7 +526,7 @@
 
   var CFG = null;
   var setorAtivo = null;   // id do setor aberto
-  var sujo = false;
+  var salvoSnapshot = '';  // estado do grid como está salvo/carregado (JSON)
   var seqCarregar = 0;     // controla qual carregamento é o mais recente
 
   /* ================= Início ================= */
@@ -552,7 +552,7 @@
     });
     document.getElementById('salvar').addEventListener('click', salvar);
     window.addEventListener('beforeunload', function (e) {
-      if (sujo) { e.preventDefault(); e.returnValue = ''; }
+      if (temAlteracoes()) { e.preventDefault(); e.returnValue = ''; }
     });
 
     // O dia já veio junto: abre sem gastar outra chamada.
@@ -611,7 +611,7 @@
 
     if (jaCarregado && jaCarregado.registros) {
       preencher(jaCarregado.registros);
-      sujo = false;
+      marcarSalvo();
       definirStatus(jaCarregado.temDados ? 'Setor carregado da planilha' : 'Nada lançado ainda neste setor/dia', 'ok');
     } else {
       carregar();
@@ -619,7 +619,7 @@
   }
 
   function confirmarDescarte() {
-    if (!sujo) return true;
+    if (!temAlteracoes()) return true;
     return confirm('Você tem alterações não salvas neste setor. Continuar vai descartá-las. Prosseguir?');
   }
 
@@ -806,7 +806,7 @@
         // descarta para não sobrescrever o setor/dia atual com dados velhos.
         if (meu !== seqCarregar) return;
         preencher(res.registros);
-        sujo = false;
+        marcarSalvo();
         travar(false, res.temDados ? 'Setor carregado da planilha' : 'Nada lançado ainda neste setor/dia', 'ok');
       })
       .catch(function (e) {
@@ -845,7 +845,7 @@
     travar(true, 'Salvando...');
     Backend.salvarSetor({ data: dataAtualBR(), setor: setorAtivo, registros: coletar() })
       .then(function (res) {
-        if (res.ok) sujo = false;
+        if (res.ok) marcarSalvo();
         travar(false, res.mensagem, res.ok ? 'ok' : 'erro');
       })
       .catch(function (e) { travar(false, 'Erro ao salvar: ' + e.message, 'erro'); });
@@ -869,9 +869,15 @@
   }
 
   /* ================= Utilidades ================= */
+  // "Sujo" = o que está na tela difere do último estado salvo/carregado.
+  // Assim, se o operador digita e depois apaga, deixa de contar como alteração.
+  function instantaneo() { return JSON.stringify(coletar()); }
+  function marcarSalvo() { salvoSnapshot = instantaneo(); }
+  function temAlteracoes() { return instantaneo() !== salvoSnapshot; }
+
   function marcarSujo() {
-    sujo = true;
-    definirStatus('Alterações não salvas', 'pendente');
+    if (temAlteracoes()) definirStatus('Alterações não salvas', 'pendente');
+    else definirStatus('Sem alterações pendentes', 'ok');
   }
 
   function travar(ocupado, msg, classe) {

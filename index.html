@@ -33,7 +33,7 @@
 
   body {
     margin: 0 auto;
-    max-width: 1240px;
+    max-width: min(1800px, 97vw);
     padding: 16px;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 16px;
@@ -154,7 +154,7 @@
     border: 1px solid var(--borda);
     border-radius: 12px;
     overflow: auto;
-    max-height: calc(100vh - 230px);
+    max-height: calc(100vh - 200px);
     box-shadow: 0 2px 8px rgba(18, 58, 107, .08);
   }
 
@@ -176,7 +176,8 @@
     color: #fff;
     font-size: 16px;
     font-weight: bold;
-    padding: 12px 6px;
+    padding: 12px 8px;
+    white-space: nowrap;
     position: sticky;
     top: 0;
     z-index: 10;

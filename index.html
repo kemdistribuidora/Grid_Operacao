@@ -33,7 +33,7 @@
 
   body {
     margin: 0 auto;
-    max-width: min(1400px, 97vw);
+    max-width: min(1500px, 97vw);
     padding: 16px;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 16px;
@@ -174,15 +174,18 @@
   thead th {
     background: var(--azul);
     color: #fff;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: bold;
-    padding: 12px 8px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    padding: 14px 14px;
     white-space: nowrap;
     position: sticky;
     top: 0;
     z-index: 10;
   }
-  #cab-setor { font-size: 18px; }
+  /* Cabeçalho padronizado: mesma fonte em todas as colunas */
+  thead th.cam { font-size: 15px; }
 
   .cam {
     background: var(--azul-clarinho);
@@ -192,12 +195,11 @@
     width: 84px;
     min-width: 84px;
   }
-  .col-op { width: 160px; }
-  .col-conf { width: 160px; }
-  .col-hora { width: 140px; }
-  .col-inc { width: 120px; font-size: 13px; }
-  .col-motivo { width: 240px; font-size: 13px; }
-  thead th.col-hora { font-size: 15px; line-height: 1.2; }
+  .col-op { width: 170px; }
+  .col-conf { width: 170px; }
+  .col-hora { width: 150px; }
+  .col-inc { width: 160px; }
+  .col-motivo { width: 240px; }
 
   /* ---------- Campos ---------- */
   select, .hora {

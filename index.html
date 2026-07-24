@@ -269,6 +269,12 @@
     outline-offset: 1px;
     border-color: var(--laranja);
   }
+  input.txt-motivo:disabled {
+    background: #f0f2f6;
+    border-color: #e2e6ee;
+    color: #aab1bf;
+    cursor: not-allowed;
+  }
 
   tr.preenchida .cam { background: #d8ecdd; color: var(--ok-escuro); }
   tbody tr:nth-child(even) td { background: #fafbfd; }
@@ -646,7 +652,12 @@
       chk.type = 'checkbox';
       chk.dataset.campo = 'inconsistencia';
       chk.title = 'Marque se houve inconsistência nesta carga';
-      chk.addEventListener('change', function () { marcarSujo(); atualizarLinha(tr); });
+      chk.addEventListener('change', function () {
+        marcarSujo();
+        atualizarLinha(tr);
+        // Ao marcar, leva o cursor direto para o motivo.
+        if (chk.checked) tr.querySelector('[data-campo="motivo"]').focus();
+      });
       tdInc.appendChild(chk);
       tr.appendChild(tdInc);
 
@@ -748,6 +759,13 @@
     });
 
     var marcado = tr.querySelector('[data-campo="inconsistencia"]').checked;
+
+    // Motivo só faz sentido quando há inconsistência: sem marcação,
+    // o campo fica desabilitado e é limpo para não sobrar texto órfão.
+    var motivo = tr.querySelector('[data-campo="motivo"]');
+    motivo.disabled = !marcado;
+    if (!marcado) motivo.value = '';
+
     var temDado = marcado || Array.prototype.some.call(
       tr.querySelectorAll('select, .hora'), function (c) { return c.value !== ''; });
     tr.classList.toggle('preenchida', temDado);

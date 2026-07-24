@@ -386,6 +386,7 @@
         var cb = '__grid_cb_' + contador;
         var script = document.createElement('script');
         var pronto = false;
+        var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
 
         var timer = setTimeout(function () {
           finalizar();
@@ -400,7 +401,17 @@
           if (script.parentNode) script.parentNode.removeChild(script);
         }
 
+        // Validação de tempo de resposta: mede a latência e avisa no console
+        // quando o servidor demora demais (diagnóstico, não altera a tela).
+        function medir() {
+          var fim = (window.performance && performance.now) ? performance.now() : Date.now();
+          var ms = Math.round(fim - t0);
+          if (ms > 8000) console.warn('[grid] resposta lenta do servidor: ' + ms + 'ms — acao=' + (params.acao || '(abertura)'));
+          return ms;
+        }
+
         window[cb] = function (resposta) {
+          medir();
           finalizar();
           resolve(resposta || { ok: false, mensagem: 'resposta vazia' });
         };
@@ -515,6 +526,7 @@
   var CFG = null;
   var setorAtivo = null;   // id do setor aberto
   var sujo = false;
+  var seqCarregar = 0;     // controla qual carregamento é o mais recente
 
   /* ================= Início ================= */
   // Manda já o setor lembrado para o servidor devolver config + dia numa chamada só.
@@ -615,6 +627,9 @@
     var corpo = document.getElementById('corpo');
     corpo.innerHTML = '';
 
+    // Monta todas as linhas fora da árvore e insere de uma vez: 1 reflow no
+    // lugar de um por caminhão (mais rápido ao trocar de setor).
+    var frag = document.createDocumentFragment();
     var caminhoes = CFG.caminhoes.slice().sort(function (a, b) { return Number(a) - Number(b); });
     caminhoes.forEach(function (cam) {
       var tr = document.createElement('tr');
@@ -677,8 +692,9 @@
       tdMotivo.appendChild(inpMotivo);
       tr.appendChild(tdMotivo);
 
-      corpo.appendChild(tr);
+      frag.appendChild(tr);
     });
+    corpo.appendChild(frag);
   }
 
   /** Uma célula com menu suspenso (separador ou conferente). */
@@ -781,14 +797,21 @@
 
   /* ================= Carregar / Salvar ================= */
   function carregar() {
+    var meu = ++seqCarregar;
     travar(true, 'Carregando...');
     Backend.carregarSetor(dataAtualBR(), setorAtivo)
       .then(function (res) {
+        // Resposta de um carregamento antigo (ex.: troca rápida de setor):
+        // descarta para não sobrescrever o setor/dia atual com dados velhos.
+        if (meu !== seqCarregar) return;
         preencher(res.registros);
         sujo = false;
         travar(false, res.temDados ? 'Setor carregado da planilha' : 'Nada lançado ainda neste setor/dia', 'ok');
       })
-      .catch(function (e) { travar(false, 'Erro: ' + e.message, 'erro'); });
+      .catch(function (e) {
+        if (meu !== seqCarregar) return;
+        travar(false, 'Erro: ' + e.message, 'erro');
+      });
   }
 
   function preencher(registros) {
@@ -855,10 +878,11 @@
     definirStatus(msg, classe || '');
   }
 
+  var elStatus = null;
   function definirStatus(msg, classe) {
-    var el = document.getElementById('status');
-    el.textContent = msg;
-    el.className = classe || '';
+    if (!elStatus) elStatus = document.getElementById('status');
+    elStatus.textContent = msg;
+    elStatus.className = classe || '';
   }
 
   function dataAtualBR() {

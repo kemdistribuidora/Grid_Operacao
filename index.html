@@ -535,7 +535,8 @@
   // Manda já o setor lembrado para o servidor devolver config + dia numa chamada só.
   Backend.inicio(setorLembrado()).then(function (res) {
     CFG = res.config;
-    document.getElementById('data').value = paraISO(CFG.hoje);
+    // Padrão é o dia anterior: eles lançam sempre o movimento de ontem.
+    document.getElementById('data').value = isoDiaAnterior(CFG.hoje);
     montarBarraSetores();
 
     document.getElementById('carregando').classList.add('oculto');
@@ -557,8 +558,8 @@
       if (temAlteracoes()) { e.preventDefault(); e.returnValue = ''; }
     });
 
-    // O dia já veio junto: abre sem gastar outra chamada.
-    selecionarSetor((res.dia && res.dia.setor) || setorInicial(), true, res.dia);
+    // Abre no dia anterior: precisa carregar esse dia (o res.dia veio de hoje).
+    selecionarSetor((res.dia && res.dia.setor) || setorInicial(), true, null);
   }).catch(function (e) {
     document.getElementById('carregando').textContent =
       'Erro ao carregar: ' + e.message + '. Confira o link do Apps Script (API_URL).';
@@ -904,6 +905,17 @@
   function paraISO(dataBR) {
     var p = dataBR.split('/');
     return p[2] + '-' + p[1] + '-' + p[0];
+  }
+
+  // Recebe "dd/mm/aaaa" e devolve o dia anterior em ISO "aaaa-mm-dd".
+  // Usa objeto Date para tratar viradas de mês/ano corretamente.
+  function isoDiaAnterior(dataBR) {
+    var p = dataBR.split('/');
+    var d = new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
+    d.setDate(d.getDate() - 1);
+    var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+    var dd = ('0' + d.getDate()).slice(-2);
+    return d.getFullYear() + '-' + mm + '-' + dd;
   }
 
   // Exposto para os testes.

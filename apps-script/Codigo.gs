@@ -75,7 +75,7 @@ function doGet(e) {
 
 /**
  * Converte o formato compacto que o front manda na URL:
- *   [[frota, separador, conferente, inicio, fim, opInicio, opFim, 0|1], ...]
+ *   [[frota, separador, conferente, inicio, fim, opInicio, opFim, 0|1, motivo], ...]
  * para o formato interno. Só vêm os caminhões preenchidos, o que deixa a
  * URL curta e o processamento leve.
  */
@@ -91,6 +91,7 @@ function registrosDeCompacto(txt) {
       op_inicio: l[5] || '',
       op_fim: l[6] || '',
       inconsistencia: l[7] === 1 || l[7] === true,
+      motivo: l[8] || '',
     };
   });
   return registros;
@@ -158,11 +159,11 @@ const CONFIG = {
 const COL = {
   DATA: 1, ROTA: 2, SETOR: 3, SEPARADOR: 4, CONFERENTE: 5,
   INICIO: 6, FIM: 7, TIME: 8, OP_INICIO: 9, OP_FIM: 10,
-  INCONSIST: 11, ATUALIZADO: 12,
+  INCONSIST: 11, MOTIVO: 12, ATUALIZADO: 13,
 };
 const CABECALHO = ['Data de carregamento', 'Frota', 'Departamento', 'Separador', 'Conferente',
                    'Hora inicio', 'Fim', 'Time', 'Início operação', 'Término operação',
-                   'Inconsistência', 'Atualizado em'];
+                   'Inconsistência', 'Motivo', 'Atualizado em'];
 // Na planilha CARREGAMENTO, as linhas 1–3 são cabeçalho/título e os dados
 // começam na linha 4. A linha 3 é a dos títulos das colunas.
 const LINHA_CABECALHO = 3;
@@ -231,9 +232,10 @@ function formatarAba(aba) {
   aba.getRange('F:G').setNumberFormat('HH:mm');    // Hora inicio / Fim (separação)
   aba.getRange('H:H').setNumberFormat('[h]:mm');   // Time — [h] deixa somar passando de 24h
   aba.getRange('I:J').setNumberFormat('HH:mm');    // Início / Término operação
-  aba.getRange('L:L').setNumberFormat('dd/MM/yyyy HH:mm');
+  aba.getRange('L:L').setNumberFormat('@');        // Motivo — texto puro
+  aba.getRange('M:M').setNumberFormat('dd/MM/yyyy HH:mm'); // Atualizado em
 
-  [130, 70, 110, 140, 130, 90, 90, 70, 110, 110, 120, 140]
+  [130, 70, 110, 140, 130, 90, 90, 70, 110, 110, 120, 220, 140]
     .forEach((larg, i) => aba.setColumnWidth(i + 1, larg));
 }
 
@@ -276,6 +278,7 @@ function carregarSetor(dataBR, setorIdOuNome) {
       op_inicio: normalizarHora(l[COL.OP_INICIO - 1]),
       op_fim: normalizarHora(l[COL.OP_FIM - 1]),
       inconsistencia: ehSim(l[COL.INCONSIST - 1]),
+      motivo: String(l[COL.MOTIVO - 1] || '').trim(),
     };
   });
 
@@ -283,7 +286,7 @@ function carregarSetor(dataBR, setorIdOuNome) {
 }
 
 function registroVazio() {
-  return { separador: '', conferente: '', inicio: '', fim: '', op_inicio: '', op_fim: '', inconsistencia: false };
+  return { separador: '', conferente: '', inicio: '', fim: '', op_inicio: '', op_fim: '', inconsistencia: false, motivo: '' };
 }
 
 /**
@@ -326,6 +329,8 @@ function salvarSetor(payload) {
       const opInicio = normalizarHora(r.op_inicio);
       const opFim = normalizarHora(r.op_fim);
       const inconsistencia = r.inconsistencia === true;
+      // Motivo só faz sentido com inconsistência; limitado a 200 caracteres.
+      const motivo = inconsistencia ? String(r.motivo || '').trim().slice(0, 200) : '';
       // Caminhão totalmente em branco não vira linha (mas só a flag marcada já vira)
       if (!separador && !conferente && !inicio && !fim && !opInicio && !opFim && !inconsistencia) return;
       const linha = [];
@@ -340,6 +345,7 @@ function salvarSetor(payload) {
       linha[COL.OP_INICIO - 1] = opInicio;
       linha[COL.OP_FIM - 1] = opFim;
       linha[COL.INCONSIST - 1] = inconsistencia ? CONFIG.INCONSIST_SIM : CONFIG.INCONSIST_NAO;
+      linha[COL.MOTIVO - 1] = motivo;
       linha[COL.ATUALIZADO - 1] = agora;
       novas.push(linha);
     });
@@ -387,6 +393,7 @@ function canonizar(l) {
   linha[COL.OP_INICIO - 1] = normalizarHora(l[COL.OP_INICIO - 1]);
   linha[COL.OP_FIM - 1] = normalizarHora(l[COL.OP_FIM - 1]);
   linha[COL.INCONSIST - 1] = ehSim(l[COL.INCONSIST - 1]) ? CONFIG.INCONSIST_SIM : CONFIG.INCONSIST_NAO;
+  linha[COL.MOTIVO - 1] = String(l[COL.MOTIVO - 1] || '').trim();
   linha[COL.ATUALIZADO - 1] = l[COL.ATUALIZADO - 1] || '';
   return linha;
 }

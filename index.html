@@ -180,8 +180,10 @@
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: .6px;
-    padding: 14px 14px;
-    white-space: nowrap;
+    padding: 12px 8px;
+    line-height: 1.15;
+    white-space: normal;   /* deixa o título quebrar em duas linhas em vez de cortar */
+    overflow-wrap: break-word;
     position: sticky;
     top: 0;
     z-index: 10;
@@ -605,7 +607,7 @@
       b.classList.toggle('ativo', ativo);
       b.style.background = ativo ? setor.cor : '#fff';
     });
-    document.getElementById('cab-setor').textContent = 'Separador — ' + setor.nome;
+    document.getElementById('cab-setor').textContent = 'Separador';
 
     desenharGrid(setor);
 

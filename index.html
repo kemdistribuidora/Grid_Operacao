@@ -195,6 +195,7 @@
   .col-conf { width: 160px; }
   .col-hora { width: 108px; }
   .col-inc { width: 120px; font-size: 13px; }
+  .col-motivo { width: 240px; font-size: 13px; }
   thead th.col-hora { font-size: 14px; line-height: 1.2; }
 
   /* ---------- Campos ---------- */
@@ -251,6 +252,22 @@
   td.inc input[type="checkbox"]:focus {
     outline: 3px solid var(--laranja);
     outline-offset: 2px;
+  }
+
+  /* ---------- Motivo da inconsistência (texto até 200 caracteres) ---------- */
+  td.motivo { min-width: 220px; }
+  input.txt-motivo {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    font: inherit;
+    border: 1px solid #cfd6e4;
+    border-radius: 6px;
+  }
+  input.txt-motivo:focus {
+    outline: 3px solid var(--laranja);
+    outline-offset: 1px;
+    border-color: var(--laranja);
   }
 
   tr.preenchida .cam { background: #d8ecdd; color: var(--ok-escuro); }
@@ -329,6 +346,7 @@
         <th class="col-hora">Início operação</th>
         <th class="col-hora">Término operação</th>
         <th class="col-inc">Inconsistência</th>
+        <th class="col-motivo">Motivo</th>
       </tr>
     </thead>
     <tbody id="corpo"></tbody>
@@ -398,11 +416,12 @@
     }
 
     function temAlgo(r) {
-      return !!(r.separador || r.conferente || r.inicio || r.fim || r.op_inicio || r.op_fim || r.inconsistencia);
+      return !!(r.separador || r.conferente || r.inicio || r.fim || r.op_inicio || r.op_fim || r.inconsistencia || r.motivo);
     }
 
     // Só os caminhões preenchidos viram uma linha compacta:
-    //   [frota, separador, conferente, inicio, fim, opInicio, opFim, 0|1]
+    //   [frota, separador, conferente, inicio, fim, opInicio, opFim, 0|1, motivo]
+    // O motivo vem por último, para o servidor gravá-lo antes da coluna "Atualizado em".
     // Isso encurta muito a URL e o trabalho do servidor.
     function compactar(registros) {
       var lista = [];
@@ -411,7 +430,7 @@
         if (!temAlgo(r)) return;
         lista.push([Number(cam), r.separador || '', r.conferente || '',
                     r.inicio || '', r.fim || '', r.op_inicio || '', r.op_fim || '',
-                    r.inconsistencia ? 1 : 0]);
+                    r.inconsistencia ? 1 : 0, r.motivo || '']);
       });
       return lista;
     }
@@ -631,6 +650,20 @@
       tdInc.appendChild(chk);
       tr.appendChild(tdInc);
 
+      // Motivo da inconsistência — texto livre, no máximo 200 caracteres
+      var tdMotivo = document.createElement('td');
+      tdMotivo.className = 'motivo';
+      var inpMotivo = document.createElement('input');
+      inpMotivo.type = 'text';
+      inpMotivo.className = 'txt-motivo';
+      inpMotivo.maxLength = 200;
+      inpMotivo.dataset.campo = 'motivo';
+      inpMotivo.placeholder = 'Motivo da inconsistência';
+      inpMotivo.title = 'Descreva o motivo da inconsistência (até 200 caracteres)';
+      inpMotivo.addEventListener('input', function () { marcarSujo(); atualizarLinha(tr); });
+      tdMotivo.appendChild(inpMotivo);
+      tr.appendChild(tdMotivo);
+
       corpo.appendChild(tr);
     });
   }
@@ -756,6 +789,7 @@
         tr.querySelector('[data-campo="' + campo + '"]').value = normalizarHora(r[campo] || '');
       });
       tr.querySelector('[data-campo="inconsistencia"]').checked = r.inconsistencia === true;
+      tr.querySelector('[data-campo="motivo"]').value = (r.motivo || '').slice(0, 200);
       atualizarLinha(tr);
     });
   }
@@ -784,6 +818,7 @@
         op_inicio: normalizarHora(tr.querySelector('[data-campo="op_inicio"]').value),
         op_fim: normalizarHora(tr.querySelector('[data-campo="op_fim"]').value),
         inconsistencia: tr.querySelector('[data-campo="inconsistencia"]').checked,
+        motivo: tr.querySelector('[data-campo="motivo"]').value.trim().slice(0, 200),
       };
     });
     return registros;

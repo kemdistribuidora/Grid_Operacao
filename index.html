@@ -342,7 +342,7 @@
      Cole abaixo o link /exec do Web App do Apps Script. Enquanto
      estiver vazio, a página roda em MODO PREVIEW (nada é gravado).
      ================================================================ */
-  var API_URL = 'https://script.google.com/macros/s/AKfycbzhAjagL3csIxTeVf_Y1w2B8bThbtMFUwVARWAX3RILKBuJ9vl7kTDT5KuHpBCUa28oSQ/exec';
+  var API_URL = 'https://script.google.com/macros/s/AKfycbyhuImTfe9Ch_oL_PiAjOdToc0VJJZiM_6d3ZwxLXaQl2Xf6xzUuciVGPV9k841CSpMIQ/exec';
   // Seam de teste: em produção __API_URL__ nunca é definido.
   if (typeof window.__API_URL__ === 'string') API_URL = window.__API_URL__;
 
@@ -458,8 +458,8 @@
     var config = {
       caminhoes: [35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,36,37,38],
       setores: [
-        { id: 'secos1',     nome: 'Secos 1',    cor: '#e6f4ea', operadores: ['Julio','Marcelo','Alzoni','Julio/Marcelo','Julio/Alzoni','Marcelo/Alzoni'] },
-        { id: 'secos2',     nome: 'Secos 2',    cor: '#e8f0fe', operadores: ['Julio','Alzoni','Marcelo','Julio/Alzoni','Julio/Marcelo','Marcelo/Alzoni'] },
+        { id: 'secos1',     nome: 'Secos 1',    cor: '#e6f4ea', operadores: ['Julio','Marcelo','Alzoni'] },
+        { id: 'secos2',     nome: 'Secos 2',    cor: '#e8f0fe', operadores: ['Julio','Alzoni','Marcelo'] },
         { id: 'resfriados', nome: 'Resfriados', cor: '#fce8e6', operadores: ['Helio','Alaor'] },
         { id: 'congelados', nome: 'Congelados', cor: '#e0f7fa', operadores: ['Josue','Douglas','Jeferson','Vitor','Andre','Francisco'] },
       ],
@@ -742,12 +742,15 @@
     registros = registros || {};
     document.querySelectorAll('#corpo tr').forEach(function (tr) {
       var r = registros[tr.dataset.cam] || {};
-      // Nome que veio da planilha mas saiu da lista não some: vira opção extra.
+      // Conferentes antigos que saíram da lista continuam visíveis ao reabrir.
       [['separador', r.separador], ['conferente', r.conferente]].forEach(function (par) {
         var sel = tr.querySelector('[data-campo="' + par[0] + '"]');
         var v = par[1] || '';
         sel.value = v;
-        if (v && sel.value !== v) { sel.appendChild(new Option(v, v)); sel.value = v; }
+        if (par[0] === 'conferente' && v && sel.value !== v) {
+          sel.appendChild(new Option(v, v));
+          sel.value = v;
+        }
       });
       ['inicio', 'fim', 'op_inicio', 'op_fim'].forEach(function (campo) {
         tr.querySelector('[data-campo="' + campo + '"]').value = normalizarHora(r[campo] || '');

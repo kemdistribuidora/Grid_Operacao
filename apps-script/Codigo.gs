@@ -135,8 +135,8 @@ const CONFIG = {
   // operadores = as opções do menu suspenso daquele setor
   SETORES: [
     // ATENÇÃO: confirme os operadores de Secos 1 e Resfriados (chutei pelos dados antigos).
-    { id: 'secos1',     nome: 'Secos 1',     cor: '#e6f4ea', operadores: ['Julio', 'Marcelo', 'Alzoni', 'Julio/Marcelo', 'Julio/Alzoni', 'Marcelo/Alzoni'] },
-    { id: 'secos2',     nome: 'Secos 2',     cor: '#e8f0fe', operadores: ['Julio', 'Alzoni', 'Marcelo', 'Julio/Alzoni', 'Julio/Marcelo', 'Marcelo/Alzoni'] },
+    { id: 'secos1',     nome: 'Secos 1',     cor: '#e6f4ea', operadores: ['Julio', 'Marcelo', 'Alzoni'] },
+    { id: 'secos2',     nome: 'Secos 2',     cor: '#e8f0fe', operadores: ['Julio', 'Alzoni', 'Marcelo'] },
     { id: 'resfriados', nome: 'Resfriados',  cor: '#fce8e6', operadores: ['Helio', 'Alaor'] },
     { id: 'congelados', nome: 'Congelados',  cor: '#e0f7fa', operadores: ['Josue', 'Douglas', 'Jeferson', 'Vitor', 'Andre', 'Francisco'] },
   ],

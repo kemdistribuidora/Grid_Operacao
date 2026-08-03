@@ -530,6 +530,7 @@
   var setorAtivo = null;   // id do setor aberto
   var salvoSnapshot = '';  // estado do grid como está salvo/carregado (JSON)
   var seqCarregar = 0;     // controla qual carregamento é o mais recente
+  var seqSalvar = 0;       // controla qual salvamento é o mais recente
 
   /* ================= Início ================= */
   // Manda já o setor lembrado para o servidor devolver config + dia numa chamada só.
@@ -551,6 +552,7 @@
 
     document.getElementById('data').addEventListener('change', function () {
       if (!confirmarDescarte()) { this.value = paraISO(dataAtualBR()); return; }
+      seqSalvar += 1; // qualquer mudança de data invalida salvamentos antigos
       carregar();
     });
     document.getElementById('salvar').addEventListener('click', salvar);
@@ -598,6 +600,7 @@
   function selecionarSetor(id, forcar, jaCarregado) {
     if (!forcar && id === setorAtivo) return;
     if (!forcar && !confirmarDescarte()) return;
+    seqSalvar += 1; // trocar de setor invalida qualquer salvamento em andamento
 
     setorAtivo = id;
     try { localStorage.setItem('grid_setor', id); } catch (e) {}
@@ -845,13 +848,22 @@
     var invalidos = document.querySelectorAll('#corpo .hora.invalido').length;
     if (invalidos && !confirm('Há ' + invalidos + ' hora(s) com formato errado (em vermelho). Salvar mesmo assim?')) return;
 
+    var minha = ++seqSalvar;
+    var data = dataAtualBR();
+    var setor = setorAtivo;
+    var registros = coletar();
+
     travar(true, 'Salvando...');
-    Backend.salvarSetor({ data: dataAtualBR(), setor: setorAtivo, registros: coletar() })
+    Backend.salvarSetor({ data: data, setor: setor, registros: registros })
       .then(function (res) {
-        if (res.ok) marcarSalvo();
+        if (minha !== seqSalvar) return; // resultado antigo não deve alterar o estado atual.
+        if (res.ok && setor === setorAtivo && data === dataAtualBR()) marcarSalvo();
         travar(false, res.mensagem, res.ok ? 'ok' : 'erro');
       })
-      .catch(function (e) { travar(false, 'Erro ao salvar: ' + e.message, 'erro'); });
+      .catch(function (e) {
+        if (minha !== seqSalvar) return;
+        travar(false, 'Erro ao salvar: ' + e.message, 'erro');
+      });
   }
 
   function coletar() {
@@ -885,6 +897,8 @@
 
   function travar(ocupado, msg, classe) {
     document.getElementById('salvar').disabled = ocupado;
+    document.getElementById('data').disabled = ocupado;
+    document.querySelectorAll('.setor-btn').forEach(function (btn) { btn.disabled = ocupado; });
     definirStatus(msg, classe || '');
   }
 

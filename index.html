@@ -247,6 +247,13 @@
     box-shadow: inset 0 -3px 0 var(--laranja);
   }
 
+  /* Campo obrigatório vazio numa linha em preenchimento */
+  select.faltando, .hora.faltando, .txt-motivo.faltando {
+    background: var(--aviso-bg);
+    outline: 2px solid var(--erro);
+    outline-offset: -2px;
+  }
+
   /* ---------- Inconsistência (caixinha grande, fácil de acertar) ---------- */
   td.inc { padding: 0; }
   td.inc input[type="checkbox"] {
@@ -504,7 +511,7 @@
         { id: 'resfriados', nome: 'Resfriados', cor: '#fce8e6', operadores: ['Helio','Alaor'] },
         { id: 'congelados', nome: 'Congelados', cor: '#e0f7fa', operadores: ['Josue','Douglas','Jeferson','Vitor','Andre','Francisco'] },
       ],
-      conferentes: ['Francisco', 'João Paulo', 'Alzoni'],
+      conferentes: ['Francisco', 'João Paulo', 'Alzoni', 'Emilio', 'Laison'],
       hoje: new Date().toLocaleDateString('pt-BR'),
     };
     function dia(data, setor) {
@@ -583,6 +590,17 @@
     return CFG.setores.filter(function (s) { return s.id === id; })[0] || null;
   }
 
+  function todosOperadores() {
+    var vistos = {};
+    var lista = [];
+    CFG.setores.forEach(function (s) {
+      (s.operadores || []).forEach(function (nome) {
+        if (!vistos[nome]) { vistos[nome] = true; lista.push(nome); }
+      });
+    });
+    return lista;
+  }
+
   function montarBarraSetores() {
     var barra = document.getElementById('setores');
     barra.innerHTML = '';
@@ -647,8 +665,8 @@
       tdCam.textContent = cam;
       tr.appendChild(tdCam);
 
-      // Separador (quem separou) — lista do setor
-      tr.appendChild(montarSelect('separador', setor.operadores, tr));
+      // Separador (quem separou) — lista única para todos os setores
+      tr.appendChild(montarSelect('separador', todosOperadores(), tr));
 
       // Conferente (quem conferiu) — lista única para todos os setores
       tr.appendChild(montarSelect('conferente', CFG.conferentes || [], tr));
@@ -795,6 +813,8 @@
       tr.querySelectorAll('select, .hora'), function (c) { return c.value !== ''; });
     tr.classList.toggle('preenchida', temDado);
     tr.classList.toggle('com-inconsistencia', marcado);
+
+    validarObrigatorios(); // atualiza o destaque de campo faltando em tempo real
   }
 
   function minutos(hhmm) {
@@ -844,7 +864,38 @@
     });
   }
 
+  // Linha "em uso" (algum campo preenchido) precisa de todos os campos
+  // preenchidos — evita salvar dado pela metade sem o operador perceber.
+  function validarObrigatorios() {
+    var camposHora = ['separador', 'conferente', 'inicio', 'fim', 'op_inicio', 'op_fim'];
+    var faltando = [];
+    document.querySelectorAll('#corpo tr').forEach(function (tr) {
+      var marcado = tr.querySelector('[data-campo="inconsistencia"]').checked;
+      var vazios = camposHora.filter(function (c) {
+        return tr.querySelector('[data-campo="' + c + '"]').value === '';
+      });
+      var motivoEl = tr.querySelector('[data-campo="motivo"]');
+      var motivoFaltando = marcado && motivoEl.value.trim() === '';
+      var emUso = marcado || vazios.length < camposHora.length;
+
+      camposHora.forEach(function (c) {
+        tr.querySelector('[data-campo="' + c + '"]')
+          .classList.toggle('faltando', emUso && vazios.indexOf(c) > -1);
+      });
+      motivoEl.classList.toggle('faltando', motivoFaltando);
+
+      if (emUso && (vazios.length || motivoFaltando)) faltando.push(tr.dataset.cam);
+    });
+    return faltando;
+  }
+
   function salvar() {
+    var faltando = validarObrigatorios();
+    if (faltando.length) {
+      travar(false, 'Preencha todos os campos obrigatórios do(s) caminhão(ões): ' + faltando.join(', ') + '.', 'erro');
+      return;
+    }
+
     var invalidos = document.querySelectorAll('#corpo .hora.invalido').length;
     if (invalidos && !confirm('Há ' + invalidos + ' hora(s) com formato errado (em vermelho). Salvar mesmo assim?')) return;
 

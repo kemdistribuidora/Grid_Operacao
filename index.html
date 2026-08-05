@@ -867,7 +867,7 @@
   // Linha "em uso" (algum campo preenchido) precisa de todos os campos
   // preenchidos — evita salvar dado pela metade sem o operador perceber.
   function validarObrigatorios() {
-    var camposHora = ['separador', 'conferente', 'inicio', 'fim', 'op_inicio', 'op_fim'];
+    var camposHora = ['separador', 'conferente', 'inicio', 'fim'];
     var faltando = [];
     document.querySelectorAll('#corpo tr').forEach(function (tr) {
       var marcado = tr.querySelector('[data-campo="inconsistencia"]').checked;

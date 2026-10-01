@@ -78,7 +78,7 @@ test('getConfig devolve caminhoes, setores e conferentes', () => {
   const ctx = criarContexto();
   const cfg = ctx.getConfig();
   assert.equal(cfg.caminhoes.length, 23);
-  assert.equal(cfg.setores.length, 4);
+  assert.equal(cfg.setores.length, 5);
   assert.ok(cfg.conferentes.includes('Alzoni'));
   assert.match(cfg.hoje, /^\d{2}\/\d{2}\/\d{4}$/);
 });
@@ -244,7 +244,7 @@ test('doGet acao=config responde config completa', () => {
   const saida = ctx.doGet({ parameter: { acao: 'config' } });
   const corpo = JSON.parse(saida._texto);
   assert.equal(corpo.ok, true);
-  assert.equal(corpo.dados.setores.length, 4);
+  assert.equal(corpo.dados.setores.length, 5);
 });
 
 test('doGet acao=dia devolve lancamentos do setor', () => {

@@ -8,11 +8,11 @@ escolhe o **setor** que vai preencher, digita, clica em Salvar. Não tem como ar
 apagar fórmula ou desalinhar coluna — porque ele não tem acesso à planilha. Quem escreve é o
 Apps Script, sempre no formato certo.
 
-**4 setores, um por vez:** a barra de cima tem `Secos 1`, `Secos 2`, `Resfriados`, `Congelados`.
+**5 setores, um por vez:** a barra de cima tem `Secos 1`, `Secos 2`, `Resfriados`, `Resfriado Santa Massa`, `Congelados`.
 Cada um tem sua lista de operadores. Salvar grava **só o setor aberto** — os outros setores do
 mesmo dia ficam intactos. A tela lembra o último setor usado (por PC).
 
-A coluna lateral são os **números dos caminhões** (16–38), iguais nos 4 setores.
+A coluna lateral são os **números dos caminhões** (16–38), iguais em todos os setores.
 
 Os dados vão para a aba **`EQUIPE SECOS API`**, em formato de lista (uma linha por lançamento).
 A aba antiga `EQUIPE SECOS` **não é tocada**.
@@ -54,7 +54,7 @@ Colunas, na ordem da planilha:
 `Data de carregamento · Frota · Departamento · Separador · Conferente · Hora inicio · Fim ·
 Time · Início operação · Término operação · Inconsistência · Atualizado em`
 
-- **Frota** = número do caminhão. **Departamento** = setor (Secos 1/2, Resfriados, Congelados).
+- **Frota** = número do caminhão. **Departamento** = setor (Secos 1/2, Resfriados, Resfriado Santa Massa, Congelados).
 - Dois pares de horário, ambos digitados: **Hora início/Fim** (separação) e **Início/Término
   operação** (operação). O **Time** é calculado pelo script = Fim − Hora início (a separação).
 - **Inconsistência** grava `Sim`/`Não`. **Atualizado em** é interno (quando a linha foi gravada).

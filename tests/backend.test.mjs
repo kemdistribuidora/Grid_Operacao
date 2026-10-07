@@ -328,22 +328,39 @@ test('normalizarPaletes aceita inteiro e rejeita lixo', () => {
   assert.equal(ctx.normalizarPaletes('abc'), '');
 });
 
-test('salvarSetor grava Paletes na coluna 14 e carregarSetor devolve', () => {
+test('salvarSetor grava Paletes na coluna O (15) e carregarSetor devolve', () => {
   const aba = criarAbaFalsa({ existente: [, , ['h']] });
   const ctx = criarContexto({ aba });
   ctx.salvarSetor({
     data: '15/07/2026', setor: 'secos1',
     registros: { 16: { separador: 'Julio', conferente: 'Alzoni', inicio: '08:00', fim: '08:20', paletes: '9' } }
   });
-  const linha = aba.getRange(4, 1, 1, 14).getValues()[0];
-  assert.equal(linha[13], 9);
+  const linha = aba.getRange(4, 1, 1, 15).getValues()[0];
+  assert.equal(linha[14], 9);
+  assert.equal(linha[13], '');
   assert.equal(ctx.carregarSetor('15/07/2026', 'secos1').registros['16'].paletes, 9);
 });
 
-test('aba antiga com 13 colunas ganha coluna e titulo Paletes', () => {
-  const aba = criarAbaFalsa({ existente: [, , ['Data de carregamento']], colunas: 13 });
+test('aba antiga com 14 colunas ganha coluna O e titulo Paletes, sem tocar N', () => {
+  const cab = ['Data de carregamento']; cab[13] = 'Outro N';
+  const aba = criarAbaFalsa({ existente: [, , cab], colunas: 14 });
   const ctx = criarContexto({ aba });
   ctx.carregarSetor('15/07/2026', 'secos1');
-  assert.equal(aba.getMaxColumns(), 14);
-  assert.equal(aba.getRange(3, 14).getValue(), 'Paletes');
+  assert.equal(aba.getMaxColumns(), 15);
+  assert.equal(aba.getRange(3, 15).getValue(), 'Paletes');
+  assert.equal(aba.getRange(3, 14).getValue(), 'Outro N');
+});
+
+test('salvarSetor nunca escreve nem limpa a coluna N', () => {
+  const COL = { DATA: 1, ROTA: 2, SETOR: 3 };
+  const a = []; a[COL.DATA - 1] = '15/07/2026'; a[COL.ROTA - 1] = '16'; a[COL.SETOR - 1] = 'Secos 1'; a[13] = 'N4';
+  const b = []; b[COL.DATA - 1] = '15/07/2026'; b[COL.ROTA - 1] = '17'; b[COL.SETOR - 1] = 'Secos 1'; b[13] = 'N5';
+  const aba = criarAbaFalsa({ existente: [, , ['h'], a, b] });
+  const ctx = criarContexto({ aba });
+  // Regrava o setor com UM caminhão só: sobra uma linha a limpar.
+  ctx.salvarSetor({ data: '15/07/2026', setor: 'secos1', registros: { 16: { separador: 'Julio', paletes: 3 } } });
+  assert.equal(aba.getRange(4, 14).getValue(), 'N4');
+  assert.equal(aba.getRange(5, 14).getValue(), 'N5');
+  assert.equal(aba.getRange(4, 15).getValue(), 3);
+  assert.equal(aba.getRange(5, 1).getValue(), '');
 });

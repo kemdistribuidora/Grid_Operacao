@@ -53,7 +53,13 @@ export function criarAbaFalsa({ existente = [], nome = 'CARREGAMENTO', colunas =
       return this;
     },
     clearContent() {
-      for (let i = 0; i < numLinhas; i++) grid.delete(linha + i);
+      // Limpa só as colunas do range; a linha some quando fica toda vazia.
+      for (let i = 0; i < numLinhas; i++) {
+        const linhaDados = grid.get(linha + i);
+        if (!linhaDados) continue;
+        for (let j = 0; j < numColunas; j++) linhaDados[coluna - 1 + j] = '';
+        if (linhaDados.every(v => v === '' || v === undefined || v === null)) grid.delete(linha + i);
+      }
       return this;
     },
     setNumberFormat() { return this; },

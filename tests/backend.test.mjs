@@ -306,3 +306,44 @@ test('doPost com JSON invalido devolve ok:false sem lancar', () => {
   assert.equal(corpo.ok, false);
   assert.match(corpo.mensagem, /^Erro:/);
 });
+
+// ---------- Paletes ----------
+test('registrosDeCompacto le paletes na posicao 9', () => {
+  const ctx = criarContexto();
+  const registros = ctx.registrosDeCompacto(JSON.stringify([
+    [16, 'Julio', 'Alzoni', '08:00', '08:20', '', '', 0, '', 12]
+  ]));
+  assert.equal(registros['16'].paletes, 12);
+});
+
+test('normalizarPaletes aceita inteiro e rejeita lixo', () => {
+  const ctx = criarContexto();
+  assert.equal(ctx.normalizarPaletes('12'), 12);
+  assert.equal(ctx.normalizarPaletes(0), 0);
+  assert.equal(ctx.normalizarPaletes(' 7 '), 7);
+  assert.equal(ctx.normalizarPaletes(''), '');
+  assert.equal(ctx.normalizarPaletes(undefined), '');
+  assert.equal(ctx.normalizarPaletes('-3'), '');
+  assert.equal(ctx.normalizarPaletes('2.5'), '');
+  assert.equal(ctx.normalizarPaletes('abc'), '');
+});
+
+test('salvarSetor grava Paletes na coluna 14 e carregarSetor devolve', () => {
+  const aba = criarAbaFalsa({ existente: [, , ['h']] });
+  const ctx = criarContexto({ aba });
+  ctx.salvarSetor({
+    data: '15/07/2026', setor: 'secos1',
+    registros: { 16: { separador: 'Julio', conferente: 'Alzoni', inicio: '08:00', fim: '08:20', paletes: '9' } }
+  });
+  const linha = aba.getRange(4, 1, 1, 14).getValues()[0];
+  assert.equal(linha[13], 9);
+  assert.equal(ctx.carregarSetor('15/07/2026', 'secos1').registros['16'].paletes, 9);
+});
+
+test('aba antiga com 13 colunas ganha coluna e titulo Paletes', () => {
+  const aba = criarAbaFalsa({ existente: [, , ['Data de carregamento']], colunas: 13 });
+  const ctx = criarContexto({ aba });
+  ctx.carregarSetor('15/07/2026', 'secos1');
+  assert.equal(aba.getMaxColumns(), 14);
+  assert.equal(aba.getRange(3, 14).getValue(), 'Paletes');
+});

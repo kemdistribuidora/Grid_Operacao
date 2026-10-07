@@ -9,8 +9,9 @@ const CODIGO_PATH = path.resolve(__dirname, '../../apps-script/Codigo.gs');
 const pad = n => String(n).padStart(2, '0');
 
 /** existente: array de linhas, indice 0 = linha 1 da planilha (base 1). */
-export function criarAbaFalsa({ existente = [], nome = 'CARREGAMENTO' } = {}) {
+export function criarAbaFalsa({ existente = [], nome = 'CARREGAMENTO', colunas = 26 } = {}) {
   const grid = new Map();
+  let maxColunas = colunas;
   existente.forEach((linha, indice) => {
     if (linha) grid.set(indice + 1, linha.slice());
   });
@@ -42,6 +43,7 @@ export function criarAbaFalsa({ existente = [], nome = 'CARREGAMENTO' } = {}) {
         return String(v);
       }));
     },
+    setValue(v) { return this.setValues([[v]]); },
     setValues(valores) {
       for (let i = 0; i < valores.length; i++) {
         const linhaDados = grid.get(linha + i) || [];
@@ -64,6 +66,8 @@ export function criarAbaFalsa({ existente = [], nome = 'CARREGAMENTO' } = {}) {
     getName: () => nome,
     getLastRow: () => maiorLinha(),
     getRange: (l, c, nl = 1, nc = 1) => range(l, c, nl, nc),
+    getMaxColumns: () => maxColunas,
+    insertColumnsAfter(_depois, n) { maxColunas += n; },
     setFrozenRows() {},
     setColumnWidth() {}
   };

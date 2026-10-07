@@ -201,12 +201,13 @@
   /* Larguras proporcionais (somam 100%) — nunca geram rolagem lateral */
   .col-op { width: 12%; }
   .col-conf { width: 12%; }
-  .col-hora { width: 10.5%; }
+  .col-hora { width: 9.5%; }
+  .col-pal { width: 7%; }
   .col-inc { width: 11%; }
-  .col-motivo { width: 17%; }
+  .col-motivo { width: 14%; }
 
   /* ---------- Campos ---------- */
-  select, .hora {
+  select, .hora, .num-paletes {
     width: 100%;
     height: 100%;
     border: none;
@@ -229,7 +230,16 @@
   }
   .hora::placeholder { color: #b7c0cd; font-weight: normal; letter-spacing: normal; }
 
-  select:focus, .hora:focus {
+  /* Paletes: só número inteiro, mesmo visual das horas */
+  .num-paletes {
+    font-size: 21px;
+    font-weight: bold;
+    color: var(--azul);
+    cursor: text;
+  }
+  .num-paletes::placeholder { color: #b7c0cd; font-weight: normal; }
+
+  select:focus, .hora:focus, .num-paletes:focus {
     outline: 3px solid var(--laranja);
     outline-offset: -3px;
     background: #fff7ec;
@@ -363,6 +373,7 @@
         <th class="col-hora">Hora Fim</th>
         <th class="col-hora">Início operação</th>
         <th class="col-hora">Término operação</th>
+        <th class="col-pal">Paletes</th>
         <th class="col-inc">Inconsistência</th>
         <th class="col-motivo">Motivo</th>
       </tr>
@@ -378,7 +389,7 @@
      Cole abaixo o link /exec do Web App do Apps Script. Enquanto
      estiver vazio, a página roda em MODO PREVIEW (nada é gravado).
      ================================================================ */
-  var API_URL = 'https://script.google.com/macros/s/AKfycbwWihv-2VaWbmDdv4fTOgG0ylPXQKoctVJBaIgzwtWDVRzMotu0Td51p6zB1vBd6UU-ng/exec';
+  var API_URL = 'https://script.google.com/macros/s/AKfycby79iAgUsL0BflKU-4br_nHH4BUZi-JY4bIaPPYZHs-sHAdgNrQWr-ZqI6cXOnZczFa4g/exec';
   // Seam de teste: em produção __API_URL__ nunca é definido.
   if (typeof window.__API_URL__ === 'string') API_URL = window.__API_URL__;
 
@@ -445,12 +456,12 @@
     }
 
     function temAlgo(r) {
-      return !!(r.separador || r.conferente || r.inicio || r.fim || r.op_inicio || r.op_fim || r.inconsistencia || r.motivo);
+      return !!(r.separador || r.conferente || r.inicio || r.fim || r.op_inicio || r.op_fim || r.inconsistencia || r.motivo || (r.paletes !== '' && r.paletes != null));
     }
 
     // Só os caminhões preenchidos viram uma linha compacta:
-    //   [frota, separador, conferente, inicio, fim, opInicio, opFim, 0|1, motivo]
-    // O motivo vem por último, para o servidor gravá-lo antes da coluna "Atualizado em".
+    //   [frota, separador, conferente, inicio, fim, opInicio, opFim, 0|1, motivo, paletes]
+    // Paletes vem por último: foi acrescentado depois, no fim da planilha.
     // Isso encurta muito a URL e o trabalho do servidor.
     function compactar(registros) {
       var lista = [];
@@ -459,7 +470,7 @@
         if (!temAlgo(r)) return;
         lista.push([Number(cam), r.separador || '', r.conferente || '',
                     r.inicio || '', r.fim || '', r.op_inicio || '', r.op_fim || '',
-                    r.inconsistencia ? 1 : 0, r.motivo || '']);
+                    r.inconsistencia ? 1 : 0, r.motivo || '', r.paletes == null ? '' : r.paletes]);
       });
       return lista;
     }
@@ -688,6 +699,28 @@
         tr.appendChild(td);
       });
 
+      // Paletes — quantos paletes a carga deu. Só dígitos (inteiro, até 4).
+      var tdPal = document.createElement('td');
+      var inpPal = document.createElement('input');
+      inpPal.type = 'text';
+      inpPal.className = 'num-paletes';
+      inpPal.inputMode = 'numeric';
+      inpPal.maxLength = 4;
+      inpPal.placeholder = '0';
+      inpPal.dataset.campo = 'paletes';
+      inpPal.title = 'Quantidade de paletes da carga';
+      inpPal.addEventListener('input', function () {
+        inpPal.value = inpPal.value.replace(/\D/g, '').slice(0, 4);
+        marcarSujo();
+        atualizarLinha(tr);
+      });
+      inpPal.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); proximoCampo(inpPal); }
+      });
+      inpPal.addEventListener('focus', function () { inpPal.select(); });
+      tdPal.appendChild(inpPal);
+      tr.appendChild(tdPal);
+
       // Inconsistência — caixinha; marcada grava "Sim", vazia grava "Não"
       var tdInc = document.createElement('td');
       tdInc.className = 'inc';
@@ -768,7 +801,7 @@
 
   function proximoCampo(atual) {
     var campos = Array.prototype.slice.call(
-      document.querySelectorAll('#corpo select, #corpo .hora, #corpo input[type="checkbox"]'));
+      document.querySelectorAll('#corpo select, #corpo .hora, #corpo .num-paletes, #corpo input[type="checkbox"]'));
     var i = campos.indexOf(atual);
     if (i > -1 && i < campos.length - 1) campos[i + 1].focus();
   }
@@ -811,7 +844,7 @@
     if (!marcado) motivo.value = '';
 
     var temDado = marcado || Array.prototype.some.call(
-      tr.querySelectorAll('select, .hora'), function (c) { return c.value !== ''; });
+      tr.querySelectorAll('select, .hora, .num-paletes'), function (c) { return c.value !== ''; });
     tr.classList.toggle('preenchida', temDado);
     tr.classList.toggle('com-inconsistencia', marcado);
 
@@ -861,6 +894,7 @@
       });
       tr.querySelector('[data-campo="inconsistencia"]').checked = r.inconsistencia === true;
       tr.querySelector('[data-campo="motivo"]').value = (r.motivo || '').slice(0, 200);
+      tr.querySelector('[data-campo="paletes"]').value = (r.paletes == null ? '' : String(r.paletes)).replace(/\D/g, '').slice(0, 4);
       atualizarLinha(tr);
     });
   }
@@ -930,6 +964,7 @@
         op_fim: normalizarHora(tr.querySelector('[data-campo="op_fim"]').value),
         inconsistencia: tr.querySelector('[data-campo="inconsistencia"]').checked,
         motivo: tr.querySelector('[data-campo="motivo"]').value.trim().slice(0, 200),
+        paletes: tr.querySelector('[data-campo="paletes"]').value,
       };
     });
     return registros;

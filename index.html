@@ -199,12 +199,13 @@
     width: 6%;
   }
   /* Larguras proporcionais (somam 100%) — nunca geram rolagem lateral */
-  .col-op { width: 12%; }
-  .col-conf { width: 12%; }
-  .col-hora { width: 9.5%; }
-  .col-pal { width: 7%; }
-  .col-inc { width: 11%; }
-  .col-motivo { width: 14%; }
+  .col-op { width: 11%; }
+  .col-conf { width: 11%; }
+  .col-hora { width: 8.5%; }
+  .col-pal { width: 6%; }
+  .col-inc { width: 8%; }
+  .col-tipo-inc { width: 12%; }
+  .col-motivo { width: 12%; }
 
   /* ---------- Campos ---------- */
   select, .hora, .num-paletes {
@@ -278,7 +279,15 @@
     outline-offset: 2px;
   }
 
-  /* ---------- Motivo da inconsistência (texto até 200 caracteres) ---------- */
+  /* ---------- Tipo de inconsistência (menu suspenso) ---------- */
+  select.sel-tipo-inc { font-size: 14px; padding: 6px 4px; }
+  select.sel-tipo-inc:disabled {
+    background: #f0f2f6;
+    color: #aab1bf;
+    cursor: not-allowed;
+  }
+
+  /* ---------- Descrição da inconsistência (texto até 200 caracteres) ---------- */
   input.txt-motivo {
     width: 100%;
     box-sizing: border-box;
@@ -375,7 +384,8 @@
         <th class="col-hora">Término operação</th>
         <th class="col-pal">Paletes</th>
         <th class="col-inc">Inconsistência</th>
-        <th class="col-motivo">Motivo</th>
+        <th class="col-tipo-inc">Tipo de inconsistência</th>
+        <th class="col-motivo">Descrição da inconsistência</th>
       </tr>
     </thead>
     <tbody id="corpo"></tbody>
@@ -389,7 +399,7 @@
      Cole abaixo o link /exec do Web App do Apps Script. Enquanto
      estiver vazio, a página roda em MODO PREVIEW (nada é gravado).
      ================================================================ */
-  var API_URL = 'https://script.google.com/macros/s/AKfycbzkQDwLo0a_Xc2FkttNKN1VVHzu-ZTUHwASowMADg7Xj8LK7OuHRJIWLr7rZ0--dR8fnQ/exec';
+  var API_URL = 'https://script.google.com/macros/s/AKfycbyE3o3kJivJnZBmbafT_Ilrgv0C6VVpLa1Y6dKy8qfh1huLoL05BIpP7XkLLskRkPIpWA/exec';
   // Seam de teste: em produção __API_URL__ nunca é definido.
   if (typeof window.__API_URL__ === 'string') API_URL = window.__API_URL__;
 
@@ -456,12 +466,12 @@
     }
 
     function temAlgo(r) {
-      return !!(r.separador || r.conferente || r.inicio || r.fim || r.op_inicio || r.op_fim || r.inconsistencia || r.motivo || (r.paletes !== '' && r.paletes != null));
+      return !!(r.separador || r.conferente || r.inicio || r.fim || r.op_inicio || r.op_fim || r.inconsistencia || r.motivo || r.tipo_inconsistencia || (r.paletes !== '' && r.paletes != null));
     }
 
     // Só os caminhões preenchidos viram uma linha compacta:
-    //   [frota, separador, conferente, inicio, fim, opInicio, opFim, 0|1, motivo, paletes]
-    // Paletes vem por último: foi acrescentado depois, no fim da planilha.
+    //   [frota, separador, conferente, inicio, fim, opInicio, opFim, 0|1, motivo, paletes, tipoInc]
+    // Paletes e tipo vêm por último: foram acrescentados depois, no fim da planilha.
     // Isso encurta muito a URL e o trabalho do servidor.
     function compactar(registros) {
       var lista = [];
@@ -470,7 +480,8 @@
         if (!temAlgo(r)) return;
         lista.push([Number(cam), r.separador || '', r.conferente || '',
                     r.inicio || '', r.fim || '', r.op_inicio || '', r.op_fim || '',
-                    r.inconsistencia ? 1 : 0, r.motivo || '', r.paletes == null ? '' : r.paletes]);
+                    r.inconsistencia ? 1 : 0, r.motivo || '', r.paletes == null ? '' : r.paletes,
+                    r.tipo_inconsistencia || '']);
       });
       return lista;
     }
@@ -524,6 +535,7 @@
         { id: 'congelados', nome: 'Congelados', cor: '#e0f7fa', operadores: ['Josue','Douglas','Jeferson','Vitor','Francisco'] },
       ],
       conferentes: ['Francisco', 'João Paulo', 'Alzoni', 'Emilio', 'Laison', 'Douglas'],
+      tiposInconsistencia: TIPOS_INCONSISTENCIA_PADRAO,
       hoje: new Date().toLocaleDateString('pt-BR'),
     };
     function dia(data, setor) {
@@ -542,6 +554,10 @@
       },
     };
   }
+
+  // Usado se o Apps Script publicado ainda não mandar a lista na config.
+  var TIPOS_INCONSISTENCIA_PADRAO = ['Troca de produto', 'Troca de marca', 'Produto faltante',
+                                     'Troca de sabor/variedade', 'Produto excedente', 'Outros'];
 
   var Backend = MODO_PREVIEW ? PreviewBackend() : RealBackend(API_URL);
 
@@ -731,13 +747,19 @@
       chk.addEventListener('change', function () {
         marcarSujo();
         atualizarLinha(tr);
-        // Ao marcar, leva o cursor direto para o motivo.
-        if (chk.checked) tr.querySelector('[data-campo="motivo"]').focus();
+        // Ao marcar, leva o cursor direto para o tipo.
+        if (chk.checked) tr.querySelector('[data-campo="tipo_inconsistencia"]').focus();
       });
       tdInc.appendChild(chk);
       tr.appendChild(tdInc);
 
-      // Motivo da inconsistência — texto livre, no máximo 200 caracteres
+      // Tipo de inconsistência — menu suspenso com as opções fixas
+      var tdTipo = montarSelect('tipo_inconsistencia', CFG.tiposInconsistencia || TIPOS_INCONSISTENCIA_PADRAO, tr);
+      tdTipo.firstChild.className = 'sel-tipo-inc';
+      tdTipo.firstChild.title = 'Escolha o tipo de inconsistência';
+      tr.appendChild(tdTipo);
+
+      // Descrição da inconsistência — texto livre, no máximo 200 caracteres
       var tdMotivo = document.createElement('td');
       tdMotivo.className = 'motivo';
       var inpMotivo = document.createElement('input');
@@ -745,8 +767,8 @@
       inpMotivo.className = 'txt-motivo';
       inpMotivo.maxLength = 200;
       inpMotivo.dataset.campo = 'motivo';
-      inpMotivo.placeholder = 'Motivo da inconsistência';
-      inpMotivo.title = 'Descreva o motivo da inconsistência (até 200 caracteres)';
+      inpMotivo.placeholder = 'Descrição da inconsistência';
+      inpMotivo.title = 'Descreva a inconsistência (até 200 caracteres)';
       inpMotivo.addEventListener('input', function () { marcarSujo(); atualizarLinha(tr); });
       tdMotivo.appendChild(inpMotivo);
       tr.appendChild(tdMotivo);
@@ -837,11 +859,13 @@
 
     var marcado = tr.querySelector('[data-campo="inconsistencia"]').checked;
 
-    // Motivo só faz sentido quando há inconsistência: sem marcação,
-    // o campo fica desabilitado e é limpo para não sobrar texto órfão.
-    var motivo = tr.querySelector('[data-campo="motivo"]');
-    motivo.disabled = !marcado;
-    if (!marcado) motivo.value = '';
+    // Tipo e descrição só fazem sentido quando há inconsistência: sem marcação,
+    // os campos ficam desabilitados e são limpos para não sobrar dado órfão.
+    ['tipo_inconsistencia', 'motivo'].forEach(function (campo) {
+      var el = tr.querySelector('[data-campo="' + campo + '"]');
+      el.disabled = !marcado;
+      if (!marcado) el.value = '';
+    });
 
     var temDado = marcado || Array.prototype.some.call(
       tr.querySelectorAll('select, .hora, .num-paletes'), function (c) { return c.value !== ''; });
@@ -894,6 +918,7 @@
       });
       tr.querySelector('[data-campo="inconsistencia"]').checked = r.inconsistencia === true;
       tr.querySelector('[data-campo="motivo"]').value = (r.motivo || '').slice(0, 200);
+      tr.querySelector('[data-campo="tipo_inconsistencia"]').value = r.tipo_inconsistencia || '';
       tr.querySelector('[data-campo="paletes"]').value = (r.paletes == null ? '' : String(r.paletes)).replace(/\D/g, '').slice(0, 4);
       atualizarLinha(tr);
     });
@@ -911,6 +936,8 @@
       });
       var motivoEl = tr.querySelector('[data-campo="motivo"]');
       var motivoFaltando = marcado && motivoEl.value.trim() === '';
+      var tipoEl = tr.querySelector('[data-campo="tipo_inconsistencia"]');
+      var tipoFaltando = marcado && tipoEl.value === '';
       var emUso = marcado || vazios.length < camposHora.length;
 
       camposHora.forEach(function (c) {
@@ -918,8 +945,9 @@
           .classList.toggle('faltando', emUso && vazios.indexOf(c) > -1);
       });
       motivoEl.classList.toggle('faltando', motivoFaltando);
+      tipoEl.classList.toggle('faltando', tipoFaltando);
 
-      if (emUso && (vazios.length || motivoFaltando)) faltando.push(tr.dataset.cam);
+      if (emUso && (vazios.length || motivoFaltando || tipoFaltando)) faltando.push(tr.dataset.cam);
     });
     return faltando;
   }
@@ -964,6 +992,7 @@
         op_fim: normalizarHora(tr.querySelector('[data-campo="op_fim"]').value),
         inconsistencia: tr.querySelector('[data-campo="inconsistencia"]').checked,
         motivo: tr.querySelector('[data-campo="motivo"]').value.trim().slice(0, 200),
+        tipo_inconsistencia: tr.querySelector('[data-campo="tipo_inconsistencia"]').value,
         paletes: tr.querySelector('[data-campo="paletes"]').value,
       };
     });

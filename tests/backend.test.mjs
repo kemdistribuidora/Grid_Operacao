@@ -341,13 +341,15 @@ test('salvarSetor grava Paletes na coluna O (15) e carregarSetor devolve', () =>
   assert.equal(ctx.carregarSetor('15/07/2026', 'secos1').registros['16'].paletes, 9);
 });
 
-test('aba antiga com 14 colunas ganha coluna O e titulo Paletes, sem tocar N', () => {
-  const cab = ['Data de carregamento']; cab[13] = 'Outro N';
+test('aba antiga com 14 colunas ganha colunas O/P e titulos, sem tocar N', () => {
+  const cab = ['Data de carregamento']; cab[11] = 'Motivo'; cab[13] = 'Outro N';
   const aba = criarAbaFalsa({ existente: [, , cab], colunas: 14 });
   const ctx = criarContexto({ aba });
   ctx.carregarSetor('15/07/2026', 'secos1');
-  assert.equal(aba.getMaxColumns(), 15);
+  assert.equal(aba.getMaxColumns(), 16);
   assert.equal(aba.getRange(3, 15).getValue(), 'Paletes');
+  assert.equal(aba.getRange(3, 16).getValue(), 'Tipo de inconsistência');
+  assert.equal(aba.getRange(3, 12).getValue(), 'Descrição da inconsistência');
   assert.equal(aba.getRange(3, 14).getValue(), 'Outro N');
 });
 
@@ -363,4 +365,68 @@ test('salvarSetor nunca escreve nem limpa a coluna N', () => {
   assert.equal(aba.getRange(5, 14).getValue(), 'N5');
   assert.equal(aba.getRange(4, 15).getValue(), 3);
   assert.equal(aba.getRange(5, 1).getValue(), '');
+});
+
+// ---------- Tipo de inconsistência ----------
+test('getConfig devolve tipos de inconsistencia', () => {
+  const ctx = criarContexto();
+  const tipos = ctx.getConfig().tiposInconsistencia;
+  assert.equal(tipos.length, 6);
+  assert.ok(tipos.includes('Troca de sabor/variedade'));
+  assert.equal(tipos[tipos.length - 1], 'Outros');
+});
+
+test('registrosDeCompacto le tipo de inconsistencia na posicao 10', () => {
+  const ctx = criarContexto();
+  const registros = ctx.registrosDeCompacto(JSON.stringify([
+    [16, 'Julio', 'Alzoni', '08:00', '08:20', '', '', 1, 'Faltou 2 cx', '', 'Produto faltante']
+  ]));
+  assert.equal(registros['16'].tipo_inconsistencia, 'Produto faltante');
+});
+
+test('normalizarTipoInc aceita so opcoes da lista', () => {
+  const ctx = criarContexto();
+  assert.equal(ctx.normalizarTipoInc('troca de marca'), 'Troca de marca');
+  assert.equal(ctx.normalizarTipoInc(' Outros '), 'Outros');
+  assert.equal(ctx.normalizarTipoInc('Qualquer coisa'), '');
+  assert.equal(ctx.normalizarTipoInc(undefined), '');
+});
+
+test('salvarSetor grava tipo na coluna P (16) e carregarSetor devolve', () => {
+  const aba = criarAbaFalsa({ existente: [, , ['h']] });
+  const ctx = criarContexto({ aba });
+  ctx.salvarSetor({
+    data: '15/07/2026', setor: 'secos1',
+    registros: { 16: { separador: 'Julio', inconsistencia: true, motivo: 'Faltou 2 cx',
+                       tipo_inconsistencia: 'Produto faltante', paletes: 4 } }
+  });
+  const linha = aba.getRange(4, 1, 1, 16).getValues()[0];
+  assert.equal(linha[11], 'Faltou 2 cx');
+  assert.equal(linha[13], '');
+  assert.equal(linha[14], 4);
+  assert.equal(linha[15], 'Produto faltante');
+  const r = ctx.carregarSetor('15/07/2026', 'secos1').registros['16'];
+  assert.equal(r.tipo_inconsistencia, 'Produto faltante');
+  assert.equal(r.motivo, 'Faltou 2 cx');
+});
+
+test('salvarSetor descarta tipo sem inconsistencia marcada', () => {
+  const aba = criarAbaFalsa({ existente: [, , ['h']] });
+  const ctx = criarContexto({ aba });
+  ctx.salvarSetor({
+    data: '15/07/2026', setor: 'secos1',
+    registros: { 16: { separador: 'Julio', inconsistencia: false, tipo_inconsistencia: 'Outros' } }
+  });
+  assert.equal(aba.getRange(4, 16).getValue(), '');
+});
+
+test('salvarSetor limpa tipo da linha que sobra', () => {
+  const COL = { DATA: 1, ROTA: 2, SETOR: 3 };
+  const a = []; a[COL.DATA - 1] = '15/07/2026'; a[COL.ROTA - 1] = '16'; a[COL.SETOR - 1] = 'Secos 1';
+  const b = []; b[COL.DATA - 1] = '15/07/2026'; b[COL.ROTA - 1] = '17'; b[COL.SETOR - 1] = 'Secos 1'; b[15] = 'Outros';
+  const aba = criarAbaFalsa({ existente: [, , ['h'], a, b] });
+  const ctx = criarContexto({ aba });
+  ctx.salvarSetor({ data: '15/07/2026', setor: 'secos1', registros: { 16: { separador: 'Julio' } } });
+  assert.equal(aba.getRange(5, 16).getValue(), '');
+  assert.equal(aba.getLastRow(), 4);
 });
